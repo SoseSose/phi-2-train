@@ -1,7 +1,7 @@
 ---
-title: readme.md
+title: readme
 tags:
-  - ''
+  - 'test qiita cli'
 private: false
 updated_at: ''
 id: null
