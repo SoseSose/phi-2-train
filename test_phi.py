@@ -7,7 +7,10 @@ import pandas as pd
 import mlflow
 import sqlite3
 import os
-from stgs import DB_PATH, ARTIFACT_LOCATION, EXPERIMENT_NAME, Phi2_MAX_TOKENS, Phi2_OUTPUT_FILE 
+from settings import DB_PATH, ARTIFACT_LOCATION, EXPERIMENT_NAME, Phi2_MAX_TOKENS, Phi2_OUTPUT_FILE 
+from utils import fix_random_seed
+
+fix_random_seed()
 
 class Phi2:
     def __init__(self) -> None:

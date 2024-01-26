@@ -4,8 +4,11 @@ from mlflow.entities import ViewType
 import os
 import json
 import pandas as pd
-from stgs import DB_PATH, Phi2_OUTPUT_FILE, EXPERIMENT_NAME
+from settings import DB_PATH, Phi2_OUTPUT_FILE, EXPERIMENT_NAME
 import pandas as pd
+from data_preprocess import string_to_two_d_list
+from arc_visualize import Plotter
+import numpy as np
 
 
 def calc_num_correct_from_df(df):
@@ -13,6 +16,8 @@ def calc_num_correct_from_df(df):
     for _, row in df.iterrows():
         if row["answer"] in row["correct"]:
             num_correct += 1
+            
+
     return num_correct
 
 
@@ -29,6 +34,15 @@ def test_calc_num_correct_from_df():
 if __name__ == "__main__":
     test_calc_num_correct_from_df()
 
+#%%
+def visualize_correct(df):
+    for _, row in df.iterrows():
+        if row["answer"] in row["correct"]:
+            print(row["answer"])
+            two_d_list = string_to_two_d_list(row["answer"])
+            Plotter().plot_some([two_d_list], "answer", show_num=True)
+
+
 # %%
 
 
@@ -42,17 +56,17 @@ def calc_acc():
         experiment_names=[EXPERIMENT_NAME],
     )
 
-
     for run in runs:
-        # print(run.info.artifact_uri)
         location = mlflow.artifacts.download_artifacts(run.info.artifact_uri)
         with open(os.path.join(location, Phi2_OUTPUT_FILE)) as f:
             dic = json.load(f)
         df = pd.DataFrame(dic["data"], columns=dic["columns"])
         num_correct = calc_num_correct_from_df(df)
+        visualize_correct(df)
         mlflow.set_experiment(EXPERIMENT_NAME)
         with mlflow.start_run(run.info.run_id):
-            mlflow.log_metric('num correct', num_correct)
+            mlflow.log_metric("num correct", num_correct)
+
 
 if __name__ == "__main__":
     calc_acc()
