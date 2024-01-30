@@ -104,20 +104,20 @@ def generate_ans(model, ds, train_or_eval):
     
     model.build()
     
-    columns = ["question name", "question", "answer", "correct", "token_num"]
+    columns = ["question name", "question", "answer", "true_out", "token_num"]
     data = {column: [] for column in columns}
 
     df = pd.DataFrame(data)
-    df.set_index("question name", inplace=True)
+    # df.set_index("question name", inplace=True)
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         mlflow.set_tag("train or Eval", train_or_eval)
 
         for data in tqdm(ds[:400]):
             question = make_prompt(data)
-            correct = data["true_out"]
+            true_out = data["true_out"]
             answer, token_num = model.get_token_num_and_answer(question)
-            df.loc[data["name"]] = [question, answer, correct, token_num]
+            df.loc[data["name"]] = [question, answer, true_out, token_num]
 
         mlflow.log_table(df, Phi2_OUTPUT_FILE)
 

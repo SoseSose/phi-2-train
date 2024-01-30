@@ -7,8 +7,9 @@ import pandas as pd
 from settings import DB_PATH, Phi2_OUTPUT_FILE, EXPERIMENT_NAME
 import pandas as pd
 from data_preprocess import string_to_two_d_list
-from arc_visualize import Plotter
+from arc_visualize import plot_task
 import numpy as np
+from data_preprocess import  make_2d_list_to_string
 
 
 def calc_num_correct_from_df(df):
@@ -17,7 +18,6 @@ def calc_num_correct_from_df(df):
         if row["answer"] in row["correct"]:
             num_correct += 1
             
-
     return num_correct
 
 
@@ -35,16 +35,19 @@ if __name__ == "__main__":
     test_calc_num_correct_from_df()
 
 #%%
-def visualize_correct(df):
-    for _, row in df.iterrows():
-        if row["answer"] in row["correct"]:
-            print(row["answer"])
-            two_d_list = string_to_two_d_list(row["answer"])
-            Plotter().plot_some([two_d_list], "answer", show_num=True)
+# def visualize_correct(df):
+#     for _, row in df.iterrows():
+#         if row["answer"] in row["correct"]:
+#             print(row["answer"])
+#             two_d_list = string_to_two_d_list(row["answer"])
+#             plot_some([two_d_list], "answer", show_num=True)
 
 
 # %%
-
+ds = make_2d_list_to_string("training")
+question_key_ds = {data["name"]: data for data in ds}
+print(ds[0])
+#%%
 
 def calc_acc():
     tracking_uri = f"sqlite:///{DB_PATH}"
@@ -57,15 +60,19 @@ def calc_acc():
     )
 
     for run in runs:
+        print(run.info.run_id)
         location = mlflow.artifacts.download_artifacts(run.info.artifact_uri)
         with open(os.path.join(location, Phi2_OUTPUT_FILE)) as f:
             dic = json.load(f)
         df = pd.DataFrame(dic["data"], columns=dic["columns"])
-        num_correct = calc_num_correct_from_df(df)
-        visualize_correct(df)
-        mlflow.set_experiment(EXPERIMENT_NAME)
-        with mlflow.start_run(run.info.run_id):
-            mlflow.log_metric("num correct", num_correct)
+        ds = make_2d_list_to_string("training")
+        
+        
+        # num_correct = calc_num_correct_from_df(df)
+        # visualize_correct(df)
+        # mlflow.set_experiment(EXPERIMENT_NAME)
+        # with mlflow.start_run(run.info.run_id):
+        #     mlflow.log_metric("num correct", num_correct)
 
 
 if __name__ == "__main__":
