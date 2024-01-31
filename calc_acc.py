@@ -6,10 +6,10 @@ import json
 import pandas as pd
 from settings import DB_PATH, Phi2_OUTPUT_FILE, EXPERIMENT_NAME
 import pandas as pd
-from data_preprocess import string_to_two_d_list
+from arc_preprocess import string_to_two_d_list
 from arc_visualize import plot_task
 import numpy as np
-from data_preprocess import  make_2d_list_to_string
+from arc_preprocess import  make_2d_list_to_string
 
 
 def calc_num_correct_from_df(df):

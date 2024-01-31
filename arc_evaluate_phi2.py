@@ -1,6 +1,6 @@
 # %%
 import torch
-from data_preprocess import make_2d_list_to_string
+from arc_preprocess import make_2d_list_to_string
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
 import pandas as pd
@@ -13,13 +13,15 @@ from utils import fix_random_seed
 fix_random_seed()
 
 class Phi2:
-    def __init__(self) -> None:
-        pass
+    save_path = "D:/models/phi2"
+    def __init__(self, name_or_path) -> None:
+        self.name_or_path = name_or_path
 
     def build(self):
         self.tokenizer = AutoTokenizer.from_pretrained(
             "microsoft/phi-2",
             trust_remote_code=True,
+            revision=self.name_or_path,
         )
 
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -28,6 +30,7 @@ class Phi2:
             # device_map="cuda:0",
             device_map="auto",
             cache_dir="D:/models",
+            revision=self.name_or_path,
             trust_remote_code=True,
         )
     
@@ -56,6 +59,10 @@ class Phi2:
             answer = token_num = "error"
 
         return answer, token_num
+    
+    def save(self):
+        self.tokenizer.save_pretrained("D:/models/phi2")
+        self.model.save_pretrained("D:/models/phi2")
 
 class Mock:
     def __init__(self) -> None:
@@ -108,19 +115,19 @@ def generate_ans(model, ds, train_or_eval):
     data = {column: [] for column in columns}
 
     df = pd.DataFrame(data)
-    # df.set_index("question name", inplace=True)
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         mlflow.set_tag("train or Eval", train_or_eval)
 
-        for data in tqdm(ds[:400]):
+        for i, data in tqdm(enumerate(ds[:400])):
             question = make_prompt(data)
             true_out = data["true_out"]
+            name = data["name"]
             answer, token_num = model.get_token_num_and_answer(question)
-            df.loc[data["name"]] = [question, answer, true_out, token_num]
+            df.loc[i] = [name, question, answer, true_out, token_num]
 
         mlflow.log_table(df, Phi2_OUTPUT_FILE)
-
+        #dataframeのindexは保存されない。
 
 if __name__ == "__main__":
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -137,12 +144,14 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH) 
 
-    phi2 = Phi2()
+    phi2 = Phi2(revision)
     train_or_eval = "training"
     ds = make_2d_list_to_string(train_or_eval)
-    generate_ans(Phi2, ds, train_or_eval)
+    generate_ans(phi2, ds, train_or_eval)
 
-    phi2 = Phi2()
+    phi2 = Phi2(revision)
     train_or_eval = "evaluation"
     ds = make_2d_list_to_string(train_or_eval)
-    generate_ans(Phi2, ds, train_or_eval)
+    generate_ans(phi2, ds, train_or_eval)
+
+#%%

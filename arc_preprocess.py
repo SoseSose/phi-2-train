@@ -3,8 +3,14 @@ from copy import deepcopy
 from pathlib import Path
 import json
 import random
-from settings import VRTCL_DELIM, HRZNTL_DELIM, INOUT_CANDIDATE_NUM
 
+# VRTCL_DELIM = ","
+VRTCL_DELIM = ""
+HRZNTL_DELIM = "\n"
+FAKE_NUM = 9
+TRUE_NUM = 1
+CANDIDATE_NUM = FAKE_NUM + TRUE_NUM
+INOUT_CANDIDATE_NUM = int(CANDIDATE_NUM / 2)
 
 
 def two_d_list_to_string(list_2d):
