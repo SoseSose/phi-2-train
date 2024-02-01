@@ -106,3 +106,19 @@ def make_2d_list_to_string(training_or_evaluation="training"):
         questions.append(question)
 
     return questions
+
+
+def make_example_prompt(train_idx, inout):
+    return f"example {train_idx}\n{inout['input']}\n->\n{inout['output']}\n\n"
+
+
+def make_prompt(question):
+    # prompt = "Instract: \n"
+    prompt = ""
+    prompt += "".join(
+        make_example_prompt(train_idx, inout)
+        for train_idx, inout in enumerate(question["train"])
+    )
+    prompt += "question\n" + question["true_in"] + "\n->\n"
+    # prompt += "Output: "
+    return prompt
