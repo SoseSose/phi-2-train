@@ -48,9 +48,7 @@ class Phi2:
                         do_sample=True,
                         max_length=Phi2_MAX_TOKENS,
                     )
-                    print(output_ids)
                     answer = self.tokenizer.decode(output_ids[0][token_ids.size(1) :])
-                    print(answer)
                     answer = answer[: answer.find("\n\n")]
 
         except Exception as e:
