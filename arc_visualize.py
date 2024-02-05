@@ -1,5 +1,4 @@
 # %%
-from dataclasses import dataclass
 from matplotlib import colors
 import numpy as np
 import matplotlib.pyplot as plt
@@ -72,9 +71,9 @@ def plot_some(
         show_num (bool): Defaults to False. 画像に数字を表示するかどうか。
     """
     if type(input) != np.ndarray:
-        input = np.array(input)
+        input = [np.array(one_input) for one_input in input]
 
-    input_dim = len(input.shape)
+    input_dim = len(input[0].shape) + 1
     if not 3 <= input_dim <= 4:
         raise ValueError("input must be [N, H, W, C] or [N, H, W]")
     elif input_dim == 4:
@@ -109,31 +108,39 @@ def plot_some(
 
 def plot_task(
     train,
-    test,
+    test_input,
+    test_output,
     candidate=None,
     model_answer=None,
     fold=1,
 ):
-    train_inputs = train_outputs = []
+    train_inputs =  []
+    train_outputs = []
     for train_inout in train:
         train_inputs.append(train_inout["input"])
         train_outputs.append(train_inout["output"])
 
+    print("plot train")
+    print(train_inputs)
     plot_some(train_inputs, "train input", fold=fold)
     plot_some(train_outputs, "train output", fold=fold)
 
-    test_inputs = test_outputs = []
-    for test_inout in test:
-        test_inputs.append(test_inout["input"])
-        test_outputs.append(test_inout["output"])
+    # test_inputs = [] 
+    # test_outputs = []
+    # for test_inout in test:
+    #     test_inputs.append(test_inout["input"])
+    #     test_outputs.append(test_inout["output"])
 
-    plot_some(test_inputs, "test input", fold=fold)
-    plot_some(test_outputs, "test output", fold=fold)
+    print("plot test")
+    # print(test_inputs)
+    plot_some(test_input, "test input", fold=fold)
+    plot_some(test_output, "test output", fold=fold)
 
     if candidate != None:
         plot_some(candidate, "candidate", fold=fold)
 
     if model_answer != None:
+        print("plot model answer")
         plot_some(model_answer, "model answer", fold=fold)
 
 

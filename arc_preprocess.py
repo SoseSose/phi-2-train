@@ -108,6 +108,26 @@ def make_2d_list_to_string(training_or_evaluation="training"):
     return questions
 
 
+def question_string_to_2d_list(question):
+    for i, inout in enumerate(question["train"]):
+        question["train"][i]["input"] = string_to_two_d_list(inout["input"])
+        question["train"][i]["output"] = string_to_two_d_list(inout["output"])
+
+    for i, inout in enumerate(question["test"]):
+        question["test"][i]["input"] = string_to_two_d_list(inout["input"])
+        question["test"][i]["output"] = string_to_two_d_list(inout["output"])
+
+    question["true_in"] = string_to_two_d_list(question["true_in"])
+    question["true_out"] = string_to_two_d_list(question["true_out"])
+
+    #! candidateにNoneがでてエラー
+    # for cand in question["candidate"]:
+    #     print(cand)
+
+    # question["candidate"] = [string_to_two_d_list(cand) for cand in question["candidate"]]
+    return question
+
+
 def make_example_prompt(train_idx, inout):
     return f"example {train_idx}\n{inout['input']}\n->\n{inout['output']}\n\n"
 
