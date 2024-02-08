@@ -8,6 +8,7 @@ import pytest
 
 #!　将来的にarcのメタデータを入手できるように
 CH_source = 10
+MAX_SIZE = 30
 
 def plot_one(ax, input, show_num=False):
     """画像を一つ表示する関数
@@ -114,39 +115,38 @@ def plot_task(
     model_answer=None,
     fold=1,
 ):
+    """
+    taskレベルで画像をまとめて表示する関数
+    Args:
+        train : [N, H, W, C]であるarc_image
+        test_input : [H, W, C]であるarc_image
+        test_output : [H, W, C]であるarc_image
+        candidate :[N, H, W, C]. Defaults to None. Noneの場合は表示しない。
+        model_answer (_type_, optional): [H, W, C]であるarc_image. Defaults to None. Noneの場合は表示しない。
+        fold (int): 行にどれだけ表示するか。例えば1なら全て縦に表示する。. Defaults to 1.
+    """
     train_inputs =  []
     train_outputs = []
     for train_inout in train:
         train_inputs.append(train_inout["input"])
         train_outputs.append(train_inout["output"])
 
-    print("plot train")
-    print(train_inputs)
     plot_some(train_inputs, "train input", fold=fold)
     plot_some(train_outputs, "train output", fold=fold)
 
-    # test_inputs = [] 
-    # test_outputs = []
-    # for test_inout in test:
-    #     test_inputs.append(test_inout["input"])
-    #     test_outputs.append(test_inout["output"])
 
-    print("plot test")
-    # print(test_inputs)
-    plot_some(test_input, "test input", fold=fold)
-    plot_some(test_output, "test output", fold=fold)
+    plot_some([test_input], "test input", fold=fold)
+    plot_some([test_output], "test output", fold=fold)
 
     if candidate != None:
         plot_some(candidate, "candidate", fold=fold)
 
     if model_answer != None:
-        print("plot model answer")
-        plot_some(model_answer, "model answer", fold=fold)
+        plot_some([model_answer], "model answer", fold=fold)
 
 
 
 # %%
-MAX_SIZE = 30
 
 class TestPlotSome:
     test_image = np.tile(np.arange(CH_source + 2), (2, 6, 1))
@@ -188,7 +188,8 @@ def test_plot_task():
     test_image = np.tile(np.arange(CH_source + 2), (2, 6, 1))
     plot_task(
         train=[{"input": test_image, "output": test_image}],
-        test=[{"input": test_image, "output": test_image}],
+        test_input=[test_image[0]],
+        test_output=[test_image[1]],
         fold=10,
     )
 
