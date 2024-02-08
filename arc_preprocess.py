@@ -1,19 +1,9 @@
 # %%
 from dataclasses import dataclass
-from copy import deepcopy
 from pathlib import Path
 import json
-import random
-from typing import List, Union, Type, Optional
+from typing import Any, List, Union
 from arc_visualize import CH_source, MAX_SIZE
-
-# VRTCL_DELIM = ","
-VRTCL_DELIM = ""
-HRZNTL_DELIM = "\n"
-FAKE_NUM = 9
-TRUE_NUM = 1
-CANDIDATE_NUM = FAKE_NUM + TRUE_NUM
-INOUT_CANDIDATE_NUM = int(CANDIDATE_NUM / 2)
 
 
 class ArcImage:
@@ -49,68 +39,6 @@ class ArcImage:
         return self.to_string(vr_delim="", hr_delim="\n")
 
 
-import pytest
-
-
-class TestArcImage:
-
-    def test_init_normal(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        arc_image = ArcImage(test_image)
-        assert arc_image.img == test_image
-
-    def test_init_lager_value(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0][0] = 12
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_init_smaller_value(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0][0] = -1
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_init_not_int(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0][0] = "0"  # type: ignore
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_init_not_same_length(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0].append(1)
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_to_string(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        arc_image = ArcImage(test_image)
-        assert (
-            arc_image.to_string(vr_delim=",", hr_delim="\n")
-            == "0,1,2,3,4,5,6,7,8,9,10,11\n0,1,2,3,4,5,6,7,8,9,10,11\n0,1,2,3,4,5,6,7,8,9,10,11\n0,1,2,3,4,5,6,7,8,9,10,11\n0,1,2,3,4,5,6,7,8,9,10,11\n0,1,2,3,4,5,6,7,8,9,10,11"
-        )
-
-    def test_to_2d_list(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        arc_image = ArcImage(test_image)
-        assert arc_image.to_2d_list() == test_image
-
-    def test_str(self):
-        test_image = [[1, 2], [3, 4]]
-        arc_image = ArcImage(test_image)
-        assert str(arc_image) == "12\n34"
-
-
-if __name__ == "__main__":
-    tst = TestArcImage()
-    tst.test_init_normal()
-    tst.test_init_lager_value()
-    tst.test_init_smaller_value()
-    tst.test_str()
-
-
-# %%
 @dataclass
 class ArcInout:
     input: ArcImage
@@ -120,13 +48,6 @@ class ArcInout:
         return f"input:\n{self.input}\noutput:\n{self.output}"
 
 
-if __name__ == "__main__":
-    test_image = [[i for i in range(11)] for _ in range(6)]
-    arc_image = ArcImage(test_image)
-    arc_inout = ArcInout(arc_image, arc_image)
-    print(arc_inout)
-
-# %%
 @dataclass
 class ArcTask:
     train: list[ArcInout]
@@ -168,13 +89,156 @@ class ArcTask:
 
         return rslt
 
-
     def __str__(self) -> str:
         return self.to_str("train", "test")
 
 
+FAKE_NUM = 8
+
+class ArcTaskSet:
+    def inout_to_string(self, inouts):
+        inouts["input"] = ArcImage(inouts["input"])
+        inouts["output"] = ArcImage(inouts["output"])
+        return inouts
+
+
+    def train_n_test_to_string(self, train_n_test):
+        train_n_test["train"] = {self.inout_to_string(inout) for inout in train_n_test["train"]}
+        train_n_test["test"] = {self.inout_to_string(inout) for inout in train_n_test["test"]}
+        return train_n_test
+
+
+    def task_json_to_arc_task(self, task):
+
+        train = []
+        for inout in task["train"]:
+            input = ArcImage(inout["input"])
+            output = ArcImage(inout["output"])
+            train.append(ArcInout(input, output))
+
+        test = task["test"]
+        true_test_in = test[0]["input"]
+        true_test_out = test[0]["output"]
+
+        true_test_inout = ArcInout(ArcImage(true_test_in), ArcImage(true_test_out))
+
+        candidate = []
+        for two_cand in test[1 : FAKE_NUM + 1]:
+            candidate.append(ArcImage(two_cand["input"]))
+            candidate.append(ArcImage(two_cand["output"]))
+
+        return ArcTask(train, true_test_inout, candidate)
+
+
+    def path_to_arc_task(self, data_path: Path) -> List[ArcTask]:
+
+        tasks = []
+        for task_file in data_path.glob("*.json"):
+            with task_file.open() as f:
+                task = json.load(f)
+                tasks.append(self.task_json_to_arc_task(task))
+
+        return tasks
+
+
+import pytest
+
+
+class TestArcImage:
+
+    def test_init_normal(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        arc_image = ArcImage(test_image)
+        assert arc_image.img == test_image
+
+    def test_init_lager_value(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0][0] = 12
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_init_smaller_value(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0][0] = -1
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_init_not_int(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0][0] = "0"  # type: ignore
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_init_not_same_length(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0].append(1)
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_to_string(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        arc_image = ArcImage(test_image)
+        assert (
+            arc_image.to_string(vr_delim="", hr_delim="\n")
+            == "012345678910\n012345678910\n012345678910\n012345678910\n012345678910\n012345678910"
+        )
+
+    def test_to_2d_list(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        arc_image = ArcImage(test_image)
+        assert arc_image.to_2d_list() == test_image
+
+    def test_str(self):
+        test_image = [[1, 2], [3, 4]]
+        arc_image = ArcImage(test_image)
+        assert str(arc_image) == "12\n34"
+
 
 class TestArcTask:
+
+    def test_train_inputs(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.train_inputs == [true_arc_image, true_arc_image]
+
+    def test_train_outputs(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.train_outputs == [false_arc_image, false_arc_image]
+
+    def test_test_input(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.test_input == true_arc_image
+
+    def test_test_output(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.test_output == false_arc_image
 
     def test_str(self):
         test_image = [[1, 2], [3, 4]]
@@ -187,63 +251,3 @@ class TestArcTask:
         )
         need_str = "-train0-\ninput:\n12\n34\noutput:\n12\n34\n\n-train1-\ninput:\n12\n34\noutput:\n12\n34\n\n-test-\ninput:\n12\n34\noutput:\n12\n34\n\n-candidate0-\n12\n34\n"
         assert str(arc_task) == need_str
-
-
-if __name__ == "__main__":
-    tst = TestArcTask()
-    tst.test_str()
-# %%
-
-
-def inout_to_string(inouts):
-    inouts["input"] = ArcImage(inouts["input"])
-    inouts["output"] = ArcImage(inouts["output"])
-    return inouts
-
-
-def train_n_test_to_string(train_n_test):
-    train_n_test["train"] = {inout_to_string(inout) for inout in train_n_test["train"]}
-    train_n_test["test"] = {inout_to_string(inout) for inout in train_n_test["test"]}
-    return train_n_test
-
-FAKE_NUM = 8
-def task_json_to_arc_task(task):
-
-    train = []
-    for inout in task["train"]:
-        input = ArcImage(inout["input"])
-        output = ArcImage(inout["output"])
-        train.append(ArcInout(input, output))
-
-    test = task["test"]
-    true_test_in = test[0]["input"]
-    true_test_out = test[0]["output"]
-
-    true_test_inout = ArcInout(ArcImage(true_test_in), ArcImage(true_test_out))
-
-    candidate = []
-    for two_cand in test[1:FAKE_NUM + 1]:
-        candidate.append(ArcImage(two_cand["input"]))
-        candidate.append(ArcImage(two_cand["output"]))
-    
-    return ArcTask(train, true_test_inout, candidate)
-
-def path_to_arc_task(data_path: Path) -> List[ArcTask]:
-
-    tasks = []
-    for task_file in data_path.glob("*.json"):
-        with task_file.open() as f:
-            task = json.load(f)
-            # print(task["name"])
-            tasks.append(task_json_to_arc_task(task))
-
-    return tasks
-
-def test_path_to_arc_task():
-    data_path = Path("data") / "training"
-    tasks = path_to_arc_task(data_path)
-    for task in tasks:
-        print(task)
-
-if __name__ == "__main__":
-    test_path_to_arc_task()
