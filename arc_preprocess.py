@@ -96,18 +96,7 @@ class ArcTask:
 FAKE_NUM = 8
 
 class ArcTaskSet:
-    def inout_to_string(self, inouts):
-        inouts["input"] = ArcImage(inouts["input"])
-        inouts["output"] = ArcImage(inouts["output"])
-        return inouts
-
-
-    def train_n_test_to_string(self, train_n_test):
-        train_n_test["train"] = {self.inout_to_string(inout) for inout in train_n_test["train"]}
-        train_n_test["test"] = {self.inout_to_string(inout) for inout in train_n_test["test"]}
-        return train_n_test
-
-
+    
     def task_json_to_arc_task(self, task):
 
         train = []
