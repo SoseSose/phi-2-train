@@ -60,6 +60,7 @@ class ArcTask:
     train: list[ArcInout]
     test: ArcInout
     candidate: list[ArcImage]
+    name: str
 
     @property
     def train_inputs(self) -> list[ArcImage]:
@@ -83,16 +84,22 @@ class ArcTask:
         else:
             return self.test.output
 
-    def to_str(self, train_name, test_name) -> str:
+    def to_str(self, train_name, test_name, show_test_out:bool=False, show_candidata:bool=False,) -> str:
         rslt = ""
 
         for i, inout in enumerate(self.train):
             rslt += f"-{train_name}{i}-\n{inout}\n\n"
 
-        rslt += f"-{test_name}-\n{self.test}\n\n"
+    
+        rslt += f"-{test_name}-\n"
+        rslt += f"input:\n{self.test_input}\n\n"
 
-        for i, one_candidate in enumerate(self.candidate):
-            rslt += f"-candidate{i}-\n{one_candidate}\n"
+        if show_test_out:
+            rslt += f"output:\n{self.test_output}\n\n"
+
+        if show_candidata:
+            for i, one_candidate in enumerate(self.candidate):
+                rslt += f"-candidate{i}-\n{one_candidate}\n"
 
         return rslt
 
@@ -140,7 +147,7 @@ class ArcTaskSet:
             candidate.append(ArcImage(two_cand["input"]))
             candidate.append(ArcImage(two_cand["output"]))
 
-        return ArcTask(train, true_test_inout, candidate)
+        return ArcTask(train, true_test_inout, candidate, task["name"])
 
     def path_to_arc_task(self, data_path: str) -> List[ArcTask]:
         """

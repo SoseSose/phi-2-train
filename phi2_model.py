@@ -48,8 +48,9 @@ class Phi2:
                         do_sample=True,
                         max_length=Phi2_MAX_TOKENS,
                     )
+                    # answer = self.tokenizer.decode(output_ids[0])
                     answer = self.tokenizer.decode(output_ids[0][token_ids.size(1) :])
-                    answer = answer[: answer.find("\n\n")]
+                    # answer = answer[: answer.find("\n\n")]
 
         except Exception as e:
             print("error")
@@ -63,6 +64,7 @@ def test_get_token_num_and_anser():
     question = "What is the sum of 1 and 2?"
     phi2 = Phi2("D:/models/phi2")
     answer, token_num = phi2.get_token_num_and_answer(question)
+    print(answer)
     assert answer is not None
     assert token_num is not None
 

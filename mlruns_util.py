@@ -1,8 +1,10 @@
+#%%
 import os
 import sqlite3
 import mlflow
 import pandas as pd
 from tqdm import tqdm
+from arc_preprocess import ArcTaskSet, ArcTask
 
 DB_PATH = "result/mlruns.db"
 ARTIFACT_LOCATION = "result/artifacts"
@@ -27,7 +29,7 @@ class MlflowRapper:
             experiment_id = experiment.experiment_id
         self.experiment_id = experiment_id
 
-    def evaluate_n_log(self, ds, model, train_or_eval):
+    def evaluate_n_log(self, ds:list[ArcTask], model, train_or_eval):
         columns = ["input idetifer", "output", "token num"]
         data = {column: [] for column in columns}
 
@@ -37,8 +39,8 @@ class MlflowRapper:
             mlflow.set_tag("train or Eval", train_or_eval)
 
             for i, data in tqdm(enumerate(ds)):
-                input_identifier = data["name"]
-                question = data["question"]
+                input_identifier = data.name
+                question = data.to_str("example", "test") + "answer the test output."
                 output, token_num = model.get_token_num_and_answer(question)
                 df.loc[i] = [input_identifier, output, token_num]
 
@@ -61,10 +63,13 @@ class Mock:
 
 
 def test_evalate_n_log():
-    train_or_eval = "training"
-    ds = [{"name": "aiueo", "question": "test"} for _ in range(10)]
     mock = Mock()
+
+    train_or_eval = "training"
+    ds = ArcTaskSet().path_to_arc_task("data/training")
     mlflow_rapper = MlflowRapper()
     run_id = mlflow_rapper.evaluate_n_log(ds, mock, train_or_eval)
     mlflow.delete_run(run_id)
+
+test_evalate_n_log()
 

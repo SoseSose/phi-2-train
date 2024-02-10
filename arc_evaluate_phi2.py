@@ -7,9 +7,11 @@ from mlruns_util import MlflowRapper
 
 fix_random_seed()
 
+
 def test_plot_task_for_task_set():
     import numpy as np
     from pathlib import Path
+
     file_name = "test.png"
     ds = ArcTaskSet().path_to_arc_task("data/training")
     mock_answer = np.arange(25).reshape(5, 5)
@@ -23,21 +25,26 @@ def test_plot_task_for_task_set():
             save_path=file_name,
         )
     Path(file_name).unlink()
-test_plot_task_for_task_set()
 
-# %%
 
+# test_plot_task_for_task_set()
+
+#%%
+if __name__ == "__main__":
+
+    phi2 = Phi2("D:/models/phi2")
+    ds = ArcTaskSet().path_to_arc_task("data/training")
+    for data in ds[:1]:
+        question = data.to_str("example", "test") + "answer the test output."
+        answer, token_num = phi2.get_token_num_and_answer(question)
+        print(answer)
+
+#%%
 if __name__ == "__main__":
 
     phi2 = Phi2("D:/models/phi2")
     train_or_eval = "training"
-    ds = make_2d_list_to_string(train_or_eval)
-    ds = [make_prompt(data) for data in ds]
-    mlflow_rapper = MlflowRapper
+    ds = ArcTaskSet().path_to_arc_task("data/training")
+    ds = ds[:10]
+    mlflow_rapper = MlflowRapper()
     mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)
-
-    phi2 = Phi2("D:/models/phi2")
-    train_or_eval = "evaluation"
-    ds = make_2d_list_to_string(train_or_eval)
-    ds = [make_prompt(data) for data in ds]
-    generate_ans(phi2, ds, train_or_eval)

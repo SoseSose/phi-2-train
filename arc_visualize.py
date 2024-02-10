@@ -6,7 +6,7 @@ from matplotlib.figure import Figure
 from typing import Union, Optional
 from pathlib import Path
 import pytest
-from arc_preprocess import CH_source, MAX_SIZE, ArcTaskSet
+from arc_preprocess import CH_source
 
 #!　将来的にarcのメタデータを入手できるように
 #! figやgsの処理が甘い。もっとシンプルに書けるはず。
