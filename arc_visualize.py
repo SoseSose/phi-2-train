@@ -2,13 +2,14 @@
 from matplotlib import colors
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Union
+from matplotlib.figure import Figure
+from typing import Union, Optional
 from pathlib import Path
 import pytest
+from arc_preprocess import CH_source, MAX_SIZE, ArcTaskSet
 
 #!　将来的にarcのメタデータを入手できるように
-CH_source = 10
-MAX_SIZE = 30
+#! figやgsの処理が甘い。もっとシンプルに書けるはず。
 
 def plot_one(ax, input, show_num=False):
     """画像を一つ表示する関数
@@ -51,145 +52,180 @@ def plot_one(ax, input, show_num=False):
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
-
-def plot_some(
+def input_format(
     input: Union[np.ndarray, list],
-    title: str,
-    fold: int = 1,
     pad=None,
-    save_file_name=None,
-    show_num=False,
-):
-    """
-    いくつかまとめて画像を表示する関数
-
+    ):
+    """ 
     Args:
-        input (np.ndarray):[N,H,W,C] or [N,H,W]のnp.ndarrayかlist, [N,H,W,C]の場合は最終次元でargmaxされる。
-        title (str): 画像の上部に表示するテキスト
-        fold (int): 画像を何行に分割するか. Defaults to 1.
-        pad (bool, optional): None or [pad height, w_height]. Defaults to None. もし値がある時はpad_height, pad_widthの値までpaddingされる。
-        save_file_name (_type_, optional):None or str. Defaults to None. 画像を保存する場合は保存場所と名前を指定する。
-        show_num (bool): Defaults to False. 画像に数字を表示するかどうか。
+        input (Union[np.ndarray, list]): [N, H, W, C]または[N, H, W]であるarc_image
+        pad (Union[None, list], optional): None or [pad height, w_height]. Defaults to None. もし値がある時はpad_height, pad_widthの値までpaddingされる。今は使っていない。
     """
+
+
     if type(input) != np.ndarray:
         input = [np.array(one_input) for one_input in input]
 
     input_dim = len(input[0].shape) + 1
     if not 3 <= input_dim <= 4:
-        raise ValueError("input must be [N, H, W, C] or [N, H, W]")
+        raise ValueError("input must be [N, H, W, C] or [N, H, W],but got  dim:{}".format(input_dim))
     elif input_dim == 4:
         input = np.argmax(input, axis=-1)
 
-    input_len = len(input)
-    w = fold
-    h = input_len // fold + 1
-    fig = plt.figure(figsize=(3 * w, 3 * h))
-    for i, val in enumerate(input):
-        ax = fig.add_subplot(
-            h,
-            w,
-            i + 1,
-            title=title + ":" + str(i),
-        )
-        if pad != None:
+    if pad != None:
+        rslt = []
+        for val in input:
             shape = val.shape
             val = np.pad(
                 val,
                 [[0, pad[0] - shape[0]], [0, pad[1] - shape[1]]],
                 constant_values=0,
             )
+            rslt.append(val)
+    else:
+        rslt = input
+    return rslt
+
+
+
+def plot_some(
+    input: Union[np.ndarray, list],
+    title: Union[str, list[str]],
+    fig,
+    gs,
+    index,
+    vis_len,
+    show_num=False,
+    
+):
+    """
+    いくつかまとめて画像を表示する関数
+    Args:
+        input (np.ndarray):[N,H,W,C] or [N,H,W]のnp.ndarrayかlist, [N,H,W,C]の場合は最終次元でargmaxされる。
+        title (str): 画像の上部に表示するテキスト
+        pad (bool, optional): None or [pad height, w_height]. Defaults to None. もし値がある時はpad_height, pad_widthの値までpaddingされる。
+        save_file_name (_type_, optional):None or str. Defaults to None. 画像を保存する場合は保存場所と名前を指定する。
+        show_num (bool): Defaults to False. 画像に数字を表示するかどうか。
+    """
+    input = input_format(input)
+    input_len = len(input)
+    w = vis_len // (input_len + 1)
+    for i, val in enumerate(input):
+
+        if type(title) == str:
+            retitle = title + ":" + str(i)
+        elif type(title) == list:
+            retitle = title[i] 
+        else:
+            raise ValueError("title must be str or list")
+
+        ax = fig.add_subplot(gs[index, i*w:(i+1)*w])
+        ax.set_title(retitle)
         plot_one(ax, val, show_num)
 
-    if save_file_name == None:
-        plt.show()
-    else:
-        plt.savefig(save_file_name)
-        plt.close()
+    return fig
+
+    
 
 
 def plot_task(
-    train,
-    test_input,
-    test_output,
+    train_inputs,
+    train_outputs,
+    test_inout,
     candidate=None,
     model_answer=None,
-    fold=1,
+    save_path=None,
 ):
     """
     taskレベルで画像をまとめて表示する関数
     Args:
-        train : [N, H, W, C]であるarc_image
-        test_input : [H, W, C]であるarc_image
-        test_output : [H, W, C]であるarc_image
-        candidate :[N, H, W, C]. Defaults to None. Noneの場合は表示しない。
-        model_answer (_type_, optional): [H, W, C]であるarc_image. Defaults to None. Noneの場合は表示しない。
-        fold (int): 行にどれだけ表示するか。例えば1なら全て縦に表示する。. Defaults to 1.
+        train : [N, H, W, C]または[N, H, W]であるarc_image
+        test_inout: [test_input, test_output]の形式でありtest_input, test_outputは[H, W, C]または[H , W]であるarc_image
+        candidate :[N, H, W, C]または[N, H, W]. Defaults to None. Noneの場合は表示しない。
+        model_answer : [H, W, C]であるarc_image. Defaults to None. Noneの場合は表示しない。
+        save_path: Defaults to None. Noneの場合は表示する。strの場合はその名前で保存する。
     """
-    train_inputs =  []
-    train_outputs = []
-    for train_inout in train:
-        train_inputs.append(train_inout["input"])
-        train_outputs.append(train_inout["output"])
+    fig = plt.figure(figsize=(30, 30))
 
-    plot_some(train_inputs, "train input", fold=fold)
-    plot_some(train_outputs, "train output", fold=fold)
+    height = 3
+    if not isinstance(candidate, type(None)):
+        height += 1
+    if not isinstance(model_answer, type(None)):
+        height += 1
 
+    vis_len = 100
+    gs = fig.add_gridspec(height ,vis_len)
 
-    plot_some([test_input], "test input", fold=fold)
-    plot_some([test_output], "test output", fold=fold)
+    plot_some(train_inputs, "train input", fig, gs,0, vis_len)
+    plot_some(train_outputs, "train output", fig, gs, 1, vis_len)
 
-    if candidate != None:
-        plot_some(candidate, "candidate", fold=fold)
+    
+    plot_some(test_inout, ["test input", "test output"], fig, gs, 2, vis_len)
 
-    if model_answer != None:
-        plot_some([model_answer], "model answer", fold=fold)
+    if not isinstance(candidate, type(None)):
+        plot_some(candidate, "candidate", fig, gs, 3, vis_len)
 
+    if not isinstance(model_answer, type(None)):
+        plot_some([model_answer], "model answer", fig, gs, 4, vis_len)
+
+    if save_path == None:
+        plt.show()
+    else:
+        fig.savefig(save_path)
+        plt.close()
+
+def test_plot_task():
+
+    test_image = np.tile(np.arange(10), (2, 6, 1))
+    print(test_image.shape)
+    file_name = "test.png"
+
+    plot_task(
+        train_inputs=test_image,
+        train_outputs=test_image,
+        test_inout=[test_image[0], test_image[1]],
+        candidate=test_image,
+        model_answer=test_image[1],
+        save_path=file_name,
+    )
+    Path(file_name).unlink()
+
+test_plot_task()
 
 
 # %%
 
-class TestPlotSome:
-    test_image = np.tile(np.arange(CH_source + 2), (2, 6, 1))
+# class TestPlotSome:
+#     test_image = np.tile(np.arange(CH_source + 2), (2, 6, 1))
 
-    def test_normal_plot(self):
-        plot_some(self.test_image, "original", show_num=True)
+#     def test_normal_plot(self):
+#         plot_some(self.test_image, "original", show_num=True)
 
-    @pytest.mark.parametrize("fold", [2, 3, 4, 5, 6, 7, 8, 9, 10])
-    def test_fold(self,fold):
-        plot_some(self.test_image + 4, "original", show_num=True, fold=fold)
+#     @pytest.mark.parametrize("fold", [2, 3, 4, 5, 6, 7, 8, 9, 10])
+#     def test_fold(self,fold):
+#         plot_some(self.test_image + 4, "original", show_num=True, fold=fold)
 
-    def test_padded_plot(self):
-        plot_some(self.test_image, "padded image", pad=(MAX_SIZE, MAX_SIZE))
+#     def test_padded_plot(self):
+#         plot_some(self.test_image, "padded image", pad=(MAX_SIZE, MAX_SIZE))
 
-    def test_one_hot_plot(self):
-        def one_hot(x: np.ndarray, depth):
-            return np.identity(depth)[x]
+#     def test_one_hot_plot(self):
+#         def one_hot(x: np.ndarray, depth):
+#             return np.identity(depth)[x]
 
-        one_hot_img = one_hot(self.test_image, CH_source + 2)
-        plot_some(one_hot_img, "image", pad=(MAX_SIZE, MAX_SIZE))
+#         one_hot_img = one_hot(self.test_image, CH_source + 2)
+#         plot_some(one_hot_img, "image", pad=(MAX_SIZE, MAX_SIZE))
 
-    def test_save_path(self):
-        file_name = "test.png"
+#     def test_save_path(self):
+#         file_name = "test.png"
 
-        plot_some(
-            self.test_image,
-            "test save",
-            pad=(MAX_SIZE, MAX_SIZE),
-            save_file_name="test.png",
-        )
-        file_path = Path(file_name)
-        if not file_path.exists():
-            raise ValueError("file not saved")
-        else:
-            file_path.unlink()
-
-def test_plot_task():
-
-    test_image = np.tile(np.arange(CH_source + 2), (2, 6, 1))
-    plot_task(
-        train=[{"input": test_image, "output": test_image}],
-        test_input=[test_image[0]],
-        test_output=[test_image[1]],
-        fold=10,
-    )
+#         plot_some(
+#             self.test_image,
+#             "test save",
+#             pad=(MAX_SIZE, MAX_SIZE),
+#         )
+#         file_path = Path(file_name)
+#         if not file_path.exists():
+#             raise ValueError("file not saved")
+#         else:
+#             file_path.unlink()
 

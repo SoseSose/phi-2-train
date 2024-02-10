@@ -3,10 +3,14 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 from typing import Any, List, Union
-from arc_visualize import CH_source, MAX_SIZE
+# from arc_visualize import CH_source, MAX_SIZE
+import numpy as np
 
+CH_source = 10
+MAX_SIZE = 30
 
 class ArcImage:
+
     def __init__(self, original_2d_list: List[List[int]]) -> None:
 
         for row in original_2d_list:
@@ -37,6 +41,9 @@ class ArcImage:
 
     def __str__(self) -> str:
         return self.to_string(vr_delim="", hr_delim="\n")
+
+    def __array__(self):
+        return np.array(self.img)
 
 
 @dataclass
@@ -95,9 +102,26 @@ class ArcTask:
 
 FAKE_NUM = 8
 
+
 class ArcTaskSet:
-    
-    def task_json_to_arc_task(self, task):
+    """
+    Represents a set of ARC tasks.
+
+    Methods:
+    - task_json_to_arc_task(task): Converts a task in JSON format to an ArcTask object.
+    - path_to_arc_task(data_path): Converts a path to a directory containing JSON task files to a list of ArcTask objects.
+    """
+
+    def _task_json_to_arc_task(self, task):
+        """
+        Converts a task in JSON format to an ArcTask object.
+
+        Parameters:
+        - task: A dictionary representing a task in JSON format.
+
+        Returns:
+        - An ArcTask object representing the converted task.
+        """
 
         train = []
         for inout in task["train"]:
@@ -118,14 +142,21 @@ class ArcTaskSet:
 
         return ArcTask(train, true_test_inout, candidate)
 
+    def path_to_arc_task(self, data_path: str) -> List[ArcTask]:
+        """
+        Converts a path to a directory containing JSON task files to a list of ArcTask objects.
 
-    def path_to_arc_task(self, data_path: Path) -> List[ArcTask]:
+        Parameters:
+        - data_path: A Path object representing the path to the directory containing JSON task files.
 
+        Returns:
+        - A list of ArcTask objects representing the converted tasks.
+        """
         tasks = []
-        for task_file in data_path.glob("*.json"):
+        for task_file in Path(data_path).glob("*.json"):
             with task_file.open() as f:
                 task = json.load(f)
-                tasks.append(self.task_json_to_arc_task(task))
+                tasks.append(self._task_json_to_arc_task(task))
 
         return tasks
 
@@ -240,3 +271,9 @@ class TestArcTask:
         )
         need_str = "-train0-\ninput:\n12\n34\noutput:\n12\n34\n\n-train1-\ninput:\n12\n34\noutput:\n12\n34\n\n-test-\ninput:\n12\n34\noutput:\n12\n34\n\n-candidate0-\n12\n34\n"
         assert str(arc_task) == need_str
+
+
+class TestArcTaskSet:
+    def test_op_path_to_arc_task(self):
+        arc_task_set = ArcTaskSet()
+        tasks = arc_task_set.path_to_arc_task("data/training")
