@@ -52,7 +52,8 @@ class ArcInout:
     output: ArcImage
 
     def __str__(self) -> str:
-        return f"input:\n{self.input}\noutput:\n{self.output}"
+        # return f"input:\n{self.input}\noutput:\n{self.output}"
+        return f"{self.input}\n->\n{self.output}"
 
 
 @dataclass
@@ -92,7 +93,7 @@ class ArcTask:
 
     
         rslt += f"-{test_name}-\n"
-        rslt += f"input:\n{self.test_input}\n\n"
+        rslt += f"\n{self.test_input}\n->\n"
 
         if show_test_out:
             rslt += f"output:\n{self.test_output}\n\n"
