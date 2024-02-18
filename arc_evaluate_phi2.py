@@ -44,8 +44,8 @@ if __name__ == "__main__":
 if __name__ == "__main__":
 
     phi2 = Phi2("D:/models/phi2")
-    train_or_eval = "training"
-    ds = ArcTaskSet().path_to_arc_task("data/training")
+    train_or_eval = "evaluation"
+    ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
     # ds = ds[:10]
     mlflow_rapper = MlflowRapper()
     mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)
