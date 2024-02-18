@@ -40,7 +40,7 @@ class MlflowRapper:
 
             for i, data in tqdm(enumerate(ds)):
                 input_identifier = data.name
-                question = data.to_str("example", "test") + "answer the test output."
+                question = data.to_str("example", "test") 
                 output, token_num = model.get_token_num_and_answer(question)
                 df.loc[i] = [input_identifier, output, token_num]
 
