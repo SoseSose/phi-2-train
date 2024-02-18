@@ -71,5 +71,3 @@ def test_evalate_n_log():
     run_id = mlflow_rapper.evaluate_n_log(ds, mock, train_or_eval)
     mlflow.delete_run(run_id)
 
-test_evalate_n_log()
-
