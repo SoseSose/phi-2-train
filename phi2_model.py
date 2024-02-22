@@ -8,23 +8,23 @@ Phi2_MAX_TOKENS = 2048
 
 
 class Phi2:
-    def __init__(self, name_or_path) -> None:
-        if not Path(name_or_path).exists():
+    def __init__(self, save_dir) -> None:
+        if not Path(save_dir).exists():
             # download phi2
             self.tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2")
             self.model = AutoModelForCausalLM.from_pretrained("microsoft/phi-2")
             # save phi2
-            self.tokenizer.save_pretrained(name_or_path)
-            self.model.save_pretrained(name_or_path)
+            self.tokenizer.save_pretrained(save_dir)
+            self.model.save_pretrained(save_dir)
 
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(
-                name_or_path,
+                save_dir,
                 trust_remote_code=True,
             )
 
             self.model = AutoModelForCausalLM.from_pretrained(
-                name_or_path,
+                save_dir,
                 torch_dtype="auto",
                 device_map="auto",
                 trust_remote_code=True,
@@ -44,13 +44,13 @@ class Phi2:
                 else:
                     output_ids = self.model.generate(
                         token_ids.to(self.model.device),
+                        pad_token_id=self.tokenizer.eos_token_id,
+                        # ないとThe attention mask ~という警告が出る。
                         temperature=0.2,
                         do_sample=True,
                         max_length=Phi2_MAX_TOKENS,
                     )
-                    # answer = self.tokenizer.decode(output_ids[0])
                     answer = self.tokenizer.decode(output_ids[0][token_ids.size(1) :])
-                    # answer = answer[: answer.find("\n\n")]
 
         except Exception as e:
             print("error")
@@ -67,7 +67,3 @@ def test_get_token_num_and_anser():
     print(answer)
     assert answer is not None
     assert token_num is not None
-
-#%%
-if __name__ == "__main__":
-    test_get_token_num_and_anser()
