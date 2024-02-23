@@ -3,11 +3,13 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 from typing import Any, List, Union
+
 # from arc_visualize import CH_source, MAX_SIZE
 import numpy as np
 
 CH_source = 10
 MAX_SIZE = 30
+
 
 class ArcImage:
 
@@ -30,7 +32,7 @@ class ArcImage:
 
         self.img = original_2d_list
 
-    def to_string(self, vr_delim, hr_delim) -> str:
+    def to_str(self, vr_delim, hr_delim) -> str:
         char_two_d_list = [[str(one_num) for one_num in row] for row in self.img]
         # num to char
         row_joined_list = [vr_delim.join(row) for row in char_two_d_list]
@@ -40,7 +42,7 @@ class ArcImage:
         return self.img
 
     def __str__(self) -> str:
-        return self.to_string(vr_delim="", hr_delim="\n")
+        return self.to_str(vr_delim="", hr_delim="\n")
 
     def __array__(self):
         return np.array(self.img)
@@ -85,13 +87,18 @@ class ArcTask:
         else:
             return self.test.output
 
-    def to_str(self, train_name, test_name, show_test_out:bool=False, show_candidata:bool=False,) -> str:
+    def to_str(
+        self,
+        train_name,
+        test_name,
+        show_test_out: bool = False,
+        show_candidata: bool = False,
+    ) -> str:
         rslt = ""
 
         for i, inout in enumerate(self.train):
             rslt += f"-{train_name}{i}-\n{inout}\n\n"
 
-    
         rslt += f"-{test_name}-\n"
         rslt += f"\n{self.test_input}\n->\n"
 
@@ -169,6 +176,23 @@ class ArcTaskSet:
         return tasks
 
 
+def str_to_arc_image(string: str) -> ArcImage:
+    """
+    Converts a string representation of a 2D list to a 2D list.
+
+    Parameters:
+    - string: A string representation of a 2D list.
+
+    Returns:
+    - A 2D list representing the converted 2D list.
+    """
+    two_d_list = string.split("\n")
+    two_d_list = [list(row) for row in two_d_list]
+    two_d_list = [[int(num) for num in row] for row in two_d_list]
+    two_d_list = ArcImage(two_d_list)
+    return two_d_list
+
+
 import pytest
 
 
@@ -207,7 +231,7 @@ class TestArcImage:
         test_image = [[i for i in range(11)] for _ in range(6)]
         arc_image = ArcImage(test_image)
         assert (
-            arc_image.to_string(vr_delim="", hr_delim="\n")
+            arc_image.to_str(vr_delim="", hr_delim="\n")
             == "012345678910\n012345678910\n012345678910\n012345678910\n012345678910\n012345678910"
         )
 
