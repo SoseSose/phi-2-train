@@ -5,60 +5,46 @@ from mlflow.entities import ViewType
 import json
 import pandas as pd
 import os
-from arc_preprocess import make_2d_list_to_string, question_string_to_2d_list, string_to_two_d_list
 from arc_visualize import plot_task
 import numpy as np
+from arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
 
 
-def calc_num_correct_from_df(df):
-    num_correct = 0
+def visualize_correct(df, train_or_eval):
+
+    ds = ArcTaskSet().path_to_arc_task("data/" + train_or_eval)
+    name_key_ds = {data.name: data for data in ds}
+
     for _, row in df.iterrows():
-        if row["answer"] in row["correct"]:
-            num_correct += 1
+        name = row["input idetifer"]
+        data = name_key_ds[name]
 
-    return num_correct
+        correct_ans = data.test_output
+        if isinstance(correct_ans, ArcImage):
+            correct_ans = correct_ans.to_str("", "\n")
 
+        model_answer = row["output"].split("\n\n")[0]
+        model_answer = row["output"]
+        print(model_answer)
 
-def test_calc_num_correct_from_df():
-    data = {
-        "answer": ["A", "B", "C"],
-        "correct": [["A"], ["B"], ["D"]],
-    }
-    df = pd.DataFrame(data)
-    num_correct = calc_num_correct_from_df(df)
-    assert num_correct == 2
-
-
-def visualize_correct(df, name_key_ds):
-    print(df.keys())
-    for _, row in df.iterrows():
-        name = row["question name"]
-        data1 = name_key_ds[name]
-        try:
-            data = question_string_to_2d_list(data1)
-        except:
-            continue
-
-        correct_answer =  np.array(data["true_out"])
-        try:
-            model_answer = np.array(string_to_two_d_list(row["answer"]))
-        except:
-            continue
-
-        if np.all([correct_answer == model_answer]):
-            print(data1["train"])
-            plot_task(
-                data["train"],
-                [data["true_in"]],
-                [data["true_out"]],
-                model_answer=[model_answer],
-                fold = 10
-            )
-        # break
-
+        # file_path = f"result//arc_phi2_correct//{train_or_eval}//{name}.png" 
+        # if correct_ans == model_answer:
+        #     model_answer = str_to_arc_image(model_answer)
+        #     plot_task(
+        #         train_inputs=data.train_inputs,
+        #         train_outputs=data.train_outputs,
+        #         test_inout=[data.test_input, data.test_output],
+        #         model_answer=model_answer,
+        #         save_path=file_path,
+        #     )
+        break
 
 
 def visualize():
+    analyze_id = [
+        # "d28f6fe4db4c480aa713c06673d79239",
+        "82a069365f3c41228cb22991a6dd28a7",
+    ]
     tracking_uri = f"sqlite:///{DB_PATH}"
     mlflow.set_tracking_uri(tracking_uri)
     runs = mlflow.search_runs(
@@ -69,25 +55,23 @@ def visualize():
     )
 
     for run in runs:
-        print(run.info.run_id)
-        location = mlflow.artifacts.download_artifacts(run.info.artifact_uri)
-        with open(os.path.join(location, Phi2_OUTPUT_FILE)) as f:
-            dic = json.load(f)
-        df = pd.DataFrame(dic["data"], columns=dic["columns"])
-        # print(df.head())
-        train_or_eval = run.data.tags["train or Eval"]
-        ds = make_2d_list_to_string(train_or_eval)
-        # ds = questions_string_to_2d_list(ds)
-        # print(ds[0])
-        name_key_ds = {data["name"]: data for data in ds}
-        visualize_correct(df, name_key_ds=name_key_ds)
-
-        # num_correct = calc_num_correct_from_df(df)
-        # visualize_correct(df)
-        # mlflow.set_experiment(EXPERIMENT_NAME)
-        # with mlflow.start_run(run.info.run_id):
-        #     mlflow.log_metric("num correct", num_correct)
-
+        if run.info.run_id in analyze_id:
+            location = mlflow.artifacts.download_artifacts(run.info.artifact_uri)
+            print(location)
+            with open(os.path.join(location, Phi2_OUTPUT_FILE)) as f:
+                dic = json.load(f)
+            df = pd.DataFrame(dic["data"], columns=dic["columns"])
+            print(df.keys())
+            train_or_eval = run.data.tags["train or Eval"]
+            visualize_correct(df, train_or_eval)
 
 visualize()
 # %%
+
+if __name__ == "__main__":
+
+    ds = ArcTaskSet().path_to_arc_task("data/training")
+    data = ds[2]
+    print(data.name)
+    question = data.to_str("example", "question") 
+    print(question)
