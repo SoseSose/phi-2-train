@@ -120,7 +120,7 @@ def plot_some(
             raise ValueError("title must be str or list")
 
         ax = fig.add_subplot(gs[index, i*w:(i+1)*w])
-        ax.set_title(retitle)
+        ax.set_title(retitle, fontdict = {"fontsize": 50})
         plot_one(ax, val, show_num)
 
     return fig
@@ -156,17 +156,21 @@ def plot_task(
     vis_len = 100
     gs = fig.add_gridspec(height ,vis_len)
 
-    plot_some(train_inputs, "train input", fig, gs,0, vis_len)
-    plot_some(train_outputs, "train output", fig, gs, 1, vis_len)
+    plot_some(train_inputs, "train in", fig, gs,0, vis_len)
+    plot_some(train_outputs, "train out", fig, gs, 1, vis_len)
 
     
-    plot_some(test_inout, ["test input", "test output"], fig, gs, 2, vis_len)
+    plot_some(test_inout, ["test in", "test out"], fig, gs, 2, vis_len)
+
+    gs_index = 2
 
     if not isinstance(candidate, type(None)):
-        plot_some(candidate, "candidate", fig, gs, 3, vis_len)
+        gs_index += 1
+        plot_some(candidate, "candidate", fig, gs, gs_index, vis_len)
 
     if not isinstance(model_answer, type(None)):
-        plot_some([model_answer], "model answer", fig, gs, 4, vis_len)
+        gs_index += 1
+        plot_some([model_answer], "model answer", fig, gs, gs_index, vis_len)
 
     if save_path == None:
         plt.show()
@@ -177,20 +181,19 @@ def plot_task(
 def test_plot_task():
 
     test_image = np.tile(np.arange(10), (2, 6, 1))
-    print(test_image.shape)
     file_name = "test.png"
 
     plot_task(
         train_inputs=test_image,
         train_outputs=test_image,
         test_inout=[test_image[0], test_image[1]],
-        candidate=test_image,
+        # candidate=test_image,
         model_answer=test_image[1],
         save_path=file_name,
     )
     Path(file_name).unlink()
-
-test_plot_task()
+if __name__ == "__main__":
+    test_plot_task()
 
 
 # %%
