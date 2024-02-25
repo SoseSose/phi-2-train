@@ -8,9 +8,19 @@ from mlruns_util import MlflowRapper
 fix_random_seed()
 
 
+if __name__ == "__main__":
+    train_or_eval = "training"
+    # train_or_eval = "evaluation"
+    ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
+    phi2 = Phi2("D:/models/phi2")
+    mlflow_rapper = MlflowRapper()
+    mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)
+
+#%%
 def test_plot_task_for_task_set():
     import numpy as np
     from pathlib import Path
+
 
     file_name = "test.png"
     ds = ArcTaskSet().path_to_arc_task("data/training")
@@ -25,27 +35,3 @@ def test_plot_task_for_task_set():
             save_path=file_name,
         )
     Path(file_name).unlink()
-
-
-# test_plot_task_for_task_set()
-
-#%%
-if __name__ == "__main__":
-
-    phi2 = Phi2("D:/models/phi2")
-    ds = ArcTaskSet().path_to_arc_task("data/training")
-    for data in ds[:1]:
-        question = data.to_str("example", "question") 
-        # print(question)
-        answer, token_num = phi2.get_token_num_and_answer(question)
-        print(answer)
-
-#%%
-if __name__ == "__main__":
-
-    phi2 = Phi2("D:/models/phi2")
-    train_or_eval = "evaluation"
-    ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
-    # ds = ds[:10]
-    mlflow_rapper = MlflowRapper()
-    mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)

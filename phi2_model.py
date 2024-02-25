@@ -33,9 +33,10 @@ class Phi2:
     def get_token_num_and_answer(self, question):
         try:
             with torch.no_grad():
-                token_ids = self.tokenizer.encode(
+                token_ids= self.tokenizer.encode(
                     question,
-                    add_special_tokens=False,
+                    add_special_tokens=True,
+                    # add_special_tokens=False,
                 )
                 token_ids = torch.tensor(token_ids).unsqueeze(0)
                 token_num = len(token_ids[0])

@@ -65,8 +65,9 @@ class Mock:
 def test_evalate_n_log():
     mock = Mock()
 
-    train_or_eval = "training"
-    ds = ArcTaskSet().path_to_arc_task("data/training")
+    # train_or_eval = "training"
+    train_or_eval = "evaluation"
+    ds = ArcTaskSet().path_to_arc_task("data/" + train_or_eval)
     mlflow_rapper = MlflowRapper()
     run_id = mlflow_rapper.evaluate_n_log(ds, mock, train_or_eval)
     mlflow.delete_run(run_id)

@@ -24,26 +24,23 @@ def visualize_correct(df, train_or_eval):
             correct_ans = correct_ans.to_str("", "\n")
 
         model_answer = row["output"].split("\n\n")[0]
-        model_answer = row["output"]
-        print(model_answer)
 
-        # file_path = f"result//arc_phi2_correct//{train_or_eval}//{name}.png" 
-        # if correct_ans == model_answer:
-        #     model_answer = str_to_arc_image(model_answer)
-        #     plot_task(
-        #         train_inputs=data.train_inputs,
-        #         train_outputs=data.train_outputs,
-        #         test_inout=[data.test_input, data.test_output],
-        #         model_answer=model_answer,
-        #         save_path=file_path,
-        #     )
-        break
+        file_path = f"result//arc_phi2_correct//{train_or_eval}//{name}.png" 
+        if correct_ans == model_answer:
+            model_answer = str_to_arc_image(model_answer)
+            plot_task(
+                train_inputs=data.train_inputs,
+                train_outputs=data.train_outputs,
+                test_inout=[data.test_input, data.test_output],
+                model_answer=model_answer,
+                save_path=file_path,
+            )
 
 
 def visualize():
     analyze_id = [
-        # "d28f6fe4db4c480aa713c06673d79239",
-        "82a069365f3c41228cb22991a6dd28a7",
+        "eadc0e6e32c34bceb5dacd75b839b6a9",
+        "ac815d2c58c54a64bd2e4226a5456aa2",
     ]
     tracking_uri = f"sqlite:///{DB_PATH}"
     mlflow.set_tracking_uri(tracking_uri)
@@ -65,13 +62,6 @@ def visualize():
             train_or_eval = run.data.tags["train or Eval"]
             visualize_correct(df, train_or_eval)
 
-visualize()
 # %%
-
 if __name__ == "__main__":
-
-    ds = ArcTaskSet().path_to_arc_task("data/training")
-    data = ds[2]
-    print(data.name)
-    question = data.to_str("example", "question") 
-    print(question)
+    visualize()
