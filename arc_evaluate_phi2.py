@@ -7,6 +7,24 @@ from mlruns_util import MlflowRapper
 
 fix_random_seed()
 
+#%%
+def test_evaluate_one():
+    train_or_eval = "training"
+    ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
+    ds = ds[2:3]
+    for data in ds:
+        print(data.name)
+    phi2 = Phi2("D:/models/phi2")
+    # prompt = ds[0].to_str("example", "test") + "Answer the output"
+    print(ds[0].name)
+    prompt = ds[0].to_str("example", "test") 
+    print(prompt)
+    answer, token_num = phi2.get_token_num_and_answer(prompt)
+    print("answer:")
+    print(answer)
+
+test_evaluate_one()
+#%%
 
 if __name__ == "__main__":
     train_or_eval = "training"
@@ -15,6 +33,8 @@ if __name__ == "__main__":
     phi2 = Phi2("D:/models/phi2")
     mlflow_rapper = MlflowRapper()
     mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)
+
+#%%
 
 #%%
 def test_plot_task_for_task_set():
@@ -35,3 +55,4 @@ def test_plot_task_for_task_set():
             save_path=file_name,
         )
     Path(file_name).unlink()
+
