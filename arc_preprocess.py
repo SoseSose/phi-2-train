@@ -6,10 +6,10 @@ from typing import Any, List, Union
 
 # from arc_visualize import CH_source, MAX_SIZE
 import numpy as np
+import numpy.typing as npt
 
 CH_source = 10
 MAX_SIZE = 30
-
 
 class ArcImage:
 
@@ -31,6 +31,9 @@ class ArcImage:
                     raise ValueError("All elements must be < {}".format(CH_source))
 
         self.img = original_2d_list
+        self.x = len(original_2d_list[0])
+        self.y = len(original_2d_list)
+
 
     def to_str(self, vr_delim, hr_delim) -> str:
         char_two_d_list = [[str(one_num) for one_num in row] for row in self.img]
@@ -44,8 +47,64 @@ class ArcImage:
     def __str__(self) -> str:
         return self.to_str(vr_delim="", hr_delim="\n")
 
+    @property
+    def to_np(self)->npt.NDArray[np.int32]:
+        return np.array(self.img)
+
     def __array__(self):
         return np.array(self.img)
+
+
+import pytest
+
+class TestArcImage:
+
+    def test_init_normal(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        arc_image = ArcImage(test_image)
+        assert arc_image.img == test_image
+
+    def test_init_lager_value(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0][0] = 12
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_init_smaller_value(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0][0] = -1
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_init_not_int(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0][0] = "0"  # type: ignore
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_init_not_same_length(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image[0].append(1)
+        with pytest.raises(ValueError):
+            ArcImage(test_image)
+
+    def test_to_string(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        arc_image = ArcImage(test_image)
+        assert (
+            arc_image.to_str(vr_delim="", hr_delim="\n")
+            == "012345678910\n012345678910\n012345678910\n012345678910\n012345678910\n012345678910"
+        )
+
+    def test_to_2d_list(self):
+        test_image = [[i for i in range(11)] for _ in range(6)]
+        arc_image = ArcImage(test_image)
+        assert arc_image.to_2d_list() == test_image
+
+    def test_str(self):
+        test_image = [[1, 2], [3, 4]]
+        arc_image = ArcImage(test_image)
+        assert str(arc_image) == "12\n34"
 
 
 @dataclass
@@ -193,57 +252,6 @@ def str_to_arc_image(string: str) -> ArcImage:
     return two_d_list
 
 
-import pytest
-
-
-class TestArcImage:
-
-    def test_init_normal(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        arc_image = ArcImage(test_image)
-        assert arc_image.img == test_image
-
-    def test_init_lager_value(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0][0] = 12
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_init_smaller_value(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0][0] = -1
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_init_not_int(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0][0] = "0"  # type: ignore
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_init_not_same_length(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        test_image[0].append(1)
-        with pytest.raises(ValueError):
-            ArcImage(test_image)
-
-    def test_to_string(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        arc_image = ArcImage(test_image)
-        assert (
-            arc_image.to_str(vr_delim="", hr_delim="\n")
-            == "012345678910\n012345678910\n012345678910\n012345678910\n012345678910\n012345678910"
-        )
-
-    def test_to_2d_list(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
-        arc_image = ArcImage(test_image)
-        assert arc_image.to_2d_list() == test_image
-
-    def test_str(self):
-        test_image = [[1, 2], [3, 4]]
-        arc_image = ArcImage(test_image)
-        assert str(arc_image) == "12\n34"
 
 
 class TestArcTask:
