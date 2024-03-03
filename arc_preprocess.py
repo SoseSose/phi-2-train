@@ -13,7 +13,7 @@ MAX_SIZE = 30
 
 class ArcImage:
 
-    def __init__(self, original_2d_list: List[List[int]]) -> None:
+    def __init__(self, original_2d_list: Union[List[List[int]], npt.NDArray[np.int32]]) -> None:
 
         for row in original_2d_list:
             if len(row) != len(original_2d_list[0]):
@@ -30,7 +30,11 @@ class ArcImage:
                 if num > CH_source:
                     raise ValueError("All elements must be < {}".format(CH_source))
 
-        self.img = original_2d_list
+        if isinstance(original_2d_list, list):
+            self.img = original_2d_list
+        else:
+            self.img = original_2d_list.tolist()
+
         self.x = len(original_2d_list[0])
         self.y = len(original_2d_list)
 
