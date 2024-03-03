@@ -20,8 +20,11 @@ def from_to_check(from_val: int, to_val: int):
 
 
 def paste(
-    from_img: np.ndarray, to_img: np.ndarray, point_x: int, point_y: int
-) -> np.ndarray:
+    from_img: npt.NDArray[np.int32],
+    to_img: npt.NDArray[np.int32],
+    point_x: int,
+    point_y: int,
+) -> npt.NDArray[np.int32]:
     point_check(point_x)
     point_check(point_y)
     from_img_y, from_img_x = from_img.shape[:2]
@@ -41,8 +44,8 @@ def paste(
 
 def test_point_val_annual():
 
-    from_img = ArcImage([[1 for _ in range(MAX_SIZE)] for _ in range(MAX_SIZE)])
-    to_img = ArcImage([[0 for _ in range(2)] for _ in range(2)])
+    from_img = np.array([[1 for _ in range(MAX_SIZE)] for _ in range(MAX_SIZE)])
+    to_img = np.array([[0 for _ in range(2)] for _ in range(2)])
     point_x = MAX_SIZE
     point_y = 0
 
@@ -120,13 +123,13 @@ def test_not_change_from_img_and_to_img():
 
 
 def draw_box(
-    from_img: np.ndarray,
+    from_img: npt.NDArray[np.int32],
     x_from: int,
     x_to: int,
     y_from: int,
     y_to: int,
     fill_val: int,
-):
+) -> npt.NDArray[np.int32]:
 
     input_x, input_y = from_img.shape[:2]
 
@@ -143,7 +146,7 @@ def draw_box(
 
 
 def test_draw_box():
-    input = np.zeros((5, 5))
+    input = np.zeros((5, 5), dtype=int)
     rslt = draw_box(input, 1, 4, 1, 4, 1)
     assert (
         rslt
@@ -160,24 +163,49 @@ def test_draw_box():
 
 
 class RandomLogicalOp:
-    def __init__(self):
-        self.a_0_b_0 = random.randint(0, 1)
-        self.a_0_b_1 = random.randint(0, 1)
-        self.a_1_b_0 = random.randint(0, 1)
-        self.a_1_b_1 = random.randint(0, 1)
+    def __init__(
+        self,
+        a_0_b_0: Optional[bool] = None,
+        a_0_b_1: Optional[bool] = None,
+        a_1_b_0: Optional[bool] = None,
+        a_1_b_1: Optional[bool] = None,
+    ):
 
-    def calc(self, a: npt.NDArray[np.int32], b: npt.NDArray[np.int32]):
+        if a_0_b_0 is not None:
+            self.a_0_b_0 = a_0_b_0
+        else:
+            self.a_0_b_0 = random.getrandbits(1)
+
+        if a_0_b_1 is not None:
+            self.a_0_b_1 = a_0_b_1
+        else:
+            self.a_0_b_1 = random.getrandbits(1)
+
+        if a_1_b_0 is not None:
+            self.a_1_b_0 = a_1_b_0
+        else:
+            self.a_1_b_0 = random.getrandbits(1)
+
+        if a_1_b_1 is not None:
+            self.a_1_b_1 = a_1_b_1
+        else:
+            self.a_1_b_1 = random.getrandbits(1)
+
+    def calc(
+        self, a: npt.NDArray[np.bool_], b: npt.NDArray[np.bool_]
+    ) -> npt.NDArray[np.bool_]:
 
         if a.shape != b.shape:
             raise ValueError("a and b must have the same shape")
 
-        if ((a != 0) & (a != 1)).all():
-            raise ValueError("a should be 0 or 1")
+        # if ((a != True) & (a != 1)).all():
+        if not np.issubdtype(a.dtype, np.bool_):
+            raise ValueError("a should be bool val")
 
-        if ((b != 0) & (b != 1)).all():
-            raise ValueError("b should be 0 or 1")
+        if not np.issubdtype(b.dtype, np.bool_):
+            raise ValueError("b should be bool val")
 
-        return np.where(
+        rslt = np.where(
             (a == 0) & (b == 0),
             self.a_0_b_0,
             np.where(
@@ -187,56 +215,76 @@ class RandomLogicalOp:
             ),
         )
 
+        return rslt.astype(bool)
 
-def test_RandomLogicalOp():
+def test_RandomLogicalOp_and():
+
+    and_logical_op = RandomLogicalOp(
+        a_0_b_0=False,
+        a_0_b_1=False,
+        a_1_b_0=False,
+        a_1_b_1=True,
+    )
+
+    a = np.array([[0,1], [0,1]], dtype=bool)
+    b = np.array([[0,1], [1,0]], dtype=bool)
+    rslt = and_logical_op.calc(a, b)
+    print(rslt)
+    assert (rslt == np.array([[0,1], [0,0]], dtype=bool)).all()
+
+def test_RandomLogicalOp_normal_case():
 
     # check calc output is 0 or 1
     for _ in range(100):
         random_logical_op = RandomLogicalOp()
 
-        a = np.array([[0 for _ in range(2)] for _ in range(2)])
-        b = np.array([[0 for _ in range(2)] for _ in range(2)])
+        a = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
+        b = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
         rslt = random_logical_op.calc(a, b)
         assert ((rslt == 0) | (rslt == 1)).all()
 
-        a = np.array([[0 for _ in range(2)] for _ in range(2)])
-        b = np.array([[1 for _ in range(2)] for _ in range(2)])
+        a = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
+        a = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
         rslt = random_logical_op.calc(a, b)
         assert ((rslt == 0) | (rslt == 1)).all()
 
-        a = np.array([[1 for _ in range(2)] for _ in range(2)])
-        b = np.array([[0 for _ in range(2)] for _ in range(2)])
+        a = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
+        a = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
         rslt = random_logical_op.calc(a, b)
         assert ((rslt == 0) | (rslt == 1)).all()
 
-        a = np.array([[1 for _ in range(2)] for _ in range(2)])
-        b = np.array([[1 for _ in range(2)] for _ in range(2)])
+        a = np.array([[1 for _ in range(2)] for _ in range(2)], dtype=bool)
+        a = np.array([[1 for _ in range(2)] for _ in range(2)], dtype=bool)
         rslt = random_logical_op.calc(a, b)
         assert ((rslt == 0) | (rslt == 1)).all()
 
+
+def test_RandomLogicalOp_ab_annual_val():
+
+    random_logical_op = RandomLogicalOp()
     # case a is not 0 or 1
-    a = np.array([[2 for _ in range(2)] for _ in range(2)])
-    b = np.array([[0 for _ in range(2)] for _ in range(2)])
+    a = np.array([[2 for _ in range(2)] for _ in range(2)], dtype=int)
+    b = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
     with pytest.raises(Exception) as e:
         random_logical_op.calc(a, b)
-    assert str(e.value) == "a should be 0 or 1"
+    assert str(e.value) == "a should be bool val"
 
     # case b is not 0 or 1
-    a = np.array([[0 for _ in range(2)] for _ in range(2)])
-    b = np.array([[2 for _ in range(2)] for _ in range(2)])
+    a = np.array([[0 for _ in range(2)] for _ in range(2)], dtype=bool)
+    b = np.array([[2 for _ in range(2)] for _ in range(2)], dtype=int)
     with pytest.raises(Exception) as e:
         random_logical_op.calc(a, b)
-    assert str(e.value) == "b should be 0 or 1"
+    assert str(e.value) == "b should be bool val"
 
 
 MAX_PART_IMG_SIZE = int(MAX_SIZE / 2) - 1
 
 
 def two_img_concat_with_line(
-    img1: np.ndarray,
-    img2: np.ndarray,
+    img1: npt.NDArray[np.int32],
+    img2: npt.NDArray[np.int32],
     line_color: int,
-) -> np.ndarray:
+) -> npt.NDArray[np.int32]:
     # img1とimg2をline_colorで区切った画像を生成する。
     if img1.shape != img2.shape:
         raise ValueError("img1 and img2 must have the same shape")
@@ -311,7 +359,7 @@ class Color:
     def __init__(self):
         self.color_cand = [i for i in range(CH_source)]
 
-    def pick_random_unused(self, index: Optional[int] = None):
+    def pick_random_unused(self, index: Optional[int] = None) -> int:
         if index is not None:
             if index < 0 or index >= len(self.color_cand):
                 raise Exception(f"index must be 0 <= index < {len(self.color_cand)}")
@@ -357,31 +405,57 @@ class ColorConverter:
         self.zero_color = zero_color
         self.one_color = one_color
 
-    def to_binary(self, img: np.ndarray):
+    def to_binary(self, img: npt.NDArray[np.int32]):
 
         if ((img != self.zero_color) & (img != self.one_color)).all():
             raise ValueError(f"img val should be {self.zero_color} or {self.one_color}")
 
-        return np.where(img == self.zero_color, 0, 1)
+        rslt = np.where(img == self.zero_color, False, True)
+        return rslt.astype(bool)
 
-    def to_color(self, img: np.ndarray):
-        if ((img != 0) & (img != 1)).all():
-            raise ValueError("img val should be 0 or 1")
+    def to_color(self, img: npt.NDArray[np.bool_]):
+        if img.dtype != np.bool_:
+            raise ValueError("img val should be bool val")
 
         return np.where(img == 0, self.zero_color, self.one_color)
 
 
+class TestColorConverter:
+    zero_color = 1
+    one_color = 2
+    color_converter = ColorConverter(zero_color=zero_color, one_color=one_color)
+
+    def test_to_binary(self):
+        zero_color = self.zero_color
+        one_color = self.one_color
+        img = np.array([[one_color, zero_color], [zero_color, one_color]])
+        bin_img = self.color_converter.to_binary(img)
+        print(bin_img)
+        assert bin_img.shape == (2, 2)
+        assert (bin_img == np.array([[True, False], [False, True]])).all()
+
+    def test_to_color(self):
+        zero_color = self.zero_color
+        one_color = self.one_color
+        img = np.array([[True, False], [False, True]])
+        color_img = self.color_converter.to_color(img)
+        assert color_img.shape == (2, 2)
+        assert (
+            color_img == np.array([[one_color, zero_color], [zero_color, one_color]])
+        ).all()
+
+
 def logical_out_img(
-    img1: np.ndarray,
-    img2: np.ndarray,
+    img1: npt.NDArray[np.int32],
+    img2: npt.NDArray[np.int32],
     color_converter: ColorConverter,
     logical_op: RandomLogicalOp,
-):
+) -> npt.NDArray[np.int32]:
     if img1.shape != img2.shape:
         raise ValueError("img1 and img2 must have the same shape")
 
     img1_binary = color_converter.to_binary(img1)
-    img2_binary = color_converter.to_binary(img1)
+    img2_binary = color_converter.to_binary(img2)
 
     rslt_img = logical_op.calc(img1_binary, img2_binary)
     out_img = color_converter.to_color(rslt_img)
@@ -398,11 +472,18 @@ def test_logical_out_img():
         zero_color=zero_color,
         one_color=one_color,
     )
-    logical_op = RandomLogicalOp()
+    logical_op = RandomLogicalOp(
+        a_0_b_0=False,
+        a_0_b_1=False,
+        a_1_b_0=False,
+        a_1_b_1=True,
+    )
     rslt = logical_out_img(img1, img2, color_converter, logical_op)
+    print(rslt)
     assert rslt.shape == (2, 2)
-    assert ((rslt == zero_color) | (rslt == one_color)).all()
+    assert (rslt == np.array([[zero_color, one_color], [zero_color, zero_color]])).all()
 
+    #img1 and img2 must have the same shape
     zero_color = 3
     one_color = 8
     img1 = np.array([[zero_color, one_color], [zero_color, one_color]])
@@ -411,6 +492,9 @@ def test_logical_out_img():
         rslt = logical_out_img(img1, img2, color_converter, logical_op)
     assert str(e.value) == "img1 and img2 must have the same shape"
 
+if __name__ == "__main__":
+    test_logical_out_img()
+
 
 def logical_inout_img(
     logical_op: RandomLogicalOp,
@@ -418,7 +502,7 @@ def logical_inout_img(
     one_color: int,
     line_color: int,
     is_vertical: bool,
-):
+) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
 
     size_x = random.randint(1, MAX_PART_IMG_SIZE)
     size_y = random.randint(1, MAX_PART_IMG_SIZE)
@@ -465,7 +549,7 @@ def test_logical_inout_img():
     in_img_y = in_img.shape[0]
     part_img_size = int(in_img_y / 2) - 1
 
-    img1 = in_img[:part_img_size+1]
+    img1 = in_img[: part_img_size + 1]
     line = in_img[part_img_size + 1]
     img2 = in_img[part_img_size + 2 :]
 
@@ -492,7 +576,7 @@ def test_logical_inout_img_is_vertical():
     in_img_x = in_img.shape[1]
     part_img_size = int(in_img_x / 2) - 1
 
-    img1 = in_img[:, :part_img_size + 1]
+    img1 = in_img[:, : part_img_size + 1]
     line = in_img[:, part_img_size + 1]
     img2 = in_img[:, part_img_size + 2 :]
 
@@ -505,8 +589,9 @@ def test_logical_inout_img_is_vertical():
     assert ((out_img == zero_color) | (out_img == one_color)).all()
 
 
-def logical_inout_imgs(img_num: int):
-    logical_op = RandomLogicalOp()
+def logical_inout_task(task_len: int, logical_op: Optional[RandomLogicalOp] = None):
+    if logical_op is None:
+        logical_op = RandomLogicalOp()
     color = Color()
     zero_color = color.pick_random_unused()
     one_color = color.pick_random_unused()
@@ -515,7 +600,7 @@ def logical_inout_imgs(img_num: int):
     in_imgs = []
     out_imgs = []
 
-    for _ in range(img_num):
+    for _ in range(task_len):
         in_img, out_img = logical_inout_img(
             logical_op, zero_color, one_color, line_color, is_vertical
         )
@@ -525,9 +610,26 @@ def logical_inout_imgs(img_num: int):
     return in_imgs, out_imgs
 
 
-in_imgs, out_imgs = logical_inout_imgs(10)
-for in_img, out_img in zip(in_imgs, out_imgs):
-    print("in")
-    print(in_img)
-    print("out")
-    print(out_img)
+if __name__ == "__main__":
+    from arc_visualize import plot_task
+
+    and_logical_op = RandomLogicalOp(
+        a_0_b_0=False,
+        a_0_b_1=False,
+        a_1_b_0=False,
+        a_1_b_1=True,
+    )
+
+    in_imgs, out_imgs = logical_inout_task(
+        10,
+        logical_op=and_logical_op,
+    )
+    print(out_imgs[1])
+
+    plot_task(
+        train_inputs=in_imgs,
+        train_outputs=out_imgs,
+        test_inout=[in_imgs[0], out_imgs[0]],
+        save_path="result/test.png",
+    )
+
