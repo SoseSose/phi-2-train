@@ -1,3 +1,4 @@
+#%%
 import dataclasses
 import json
 import random
@@ -56,29 +57,29 @@ def test_point_val_annual():
 
     # check point_x lager than MAX_SIZE
     with pytest.raises(Exception) as e:
-        rslt = paste(from_img, to_img, point_x, point_y)
+        _ = paste(from_img, to_img, point_x, point_y)
     assert str(e.value) == f"Point val must be < {MAX_SIZE}(MAX SIZE)"
 
     # check point_y lager than MAX_SIZE
     point_x = 0
     point_y = MAX_SIZE
     with pytest.raises(Exception) as e:
-        rslt = paste(from_img, to_img, point_x, point_y)
+        _ = paste(from_img, to_img, point_x, point_y)
     assert str(e.value) == f"Point val must be < {MAX_SIZE}(MAX SIZE)"
 
     # check_point_x negative
     point_x = -1
     point_y = 1
     with pytest.raises(Exception) as e:
-        rslt = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == f"Point val must be > 0"
+        _ = paste(from_img, to_img, point_x, point_y)
+    assert str(e.value) == "Point val must be > 0"
 
     # check_point_y negative
     point_x = 1
     point_y = -1
     with pytest.raises(Exception) as e:
-        rslt = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == f"Point val must be > 0"
+        _ = paste(from_img, to_img, point_x, point_y)
+    assert str(e.value) == "Point val must be > 0"
 
 
 def test_paint_spill_oper():
@@ -90,25 +91,25 @@ def test_paint_spill_oper():
     # it should be ok
     point_x = 0
     point_y = 0
-    rslt_img = paste(from_img, to_img, point_x, point_y)
+    _ = paste(from_img, to_img, point_x, point_y)
 
     # it also should be ok
     point_x = 2
     point_y = 2
-    rslt_img = paste(from_img, to_img, point_x, point_y)
+    _ = paste(from_img, to_img, point_x, point_y)
 
     # it should be error on x
     point_x = 3
     point_y = 2
     with pytest.raises(Exception) as e:
-        rslt_img = paste(from_img, to_img, point_x, point_y)
+        _ = paste(from_img, to_img, point_x, point_y)
     assert str(e.value) == "from_img.x > point_x + to_img.x"
 
     # it should be error on y
     point_x = 2
     point_y = 3
     with pytest.raises(Exception) as e:
-        rslt_img = paste(from_img, to_img, point_x, point_y)
+        _ = paste(from_img, to_img, point_x, point_y)
     assert str(e.value) == "from_img.y > point_y + to_img.y"
 
 
@@ -121,7 +122,7 @@ def test_not_change_from_img_and_to_img():
 
     point_x = 0
     point_y = 0
-    rslt_img = paste(from_img, to_img, point_x, point_y)
+    _ = paste(from_img, to_img, point_x, point_y)
 
     assert (from_img == save_from_img).all()
     assert (to_img == save_to_img).all()
@@ -326,7 +327,7 @@ def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
-        rslt = two_img_concat_with_line(img1, img2, 8)
+        _ = two_img_concat_with_line(img1, img2, 8)
     assert (
         str(e.value)
         == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
@@ -339,7 +340,7 @@ def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
-        rslt = two_img_concat_with_line(img1, img2, 8)
+        _ = two_img_concat_with_line(img1, img2, 8)
     assert (
         str(e.value)
         == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
@@ -520,7 +521,7 @@ def logical_inout_img(
 
     color_converter = ColorConverter(zero_color, one_color)
     out_img = logical_out_img(
-        img1=img1,
+       img1=img1,
         img2=img2,
         color_converter=color_converter,
         logical_op=logical_op,
@@ -701,11 +702,18 @@ def test_save_and_load_logical_task(tmp_path: Path):
 
 
 def save_logical_tasks(save_dir: Path, task_num: int):
+    print(f"save logical op tasks to {save_dir}...")
+
+    if save_dir.exists():
+    #all files in the directory will be deleted
+        for file in save_dir.glob("*"):
+            file.unlink()
+
     if not save_dir.exists():
         save_dir.mkdir()
+            
     for _ in tqdm(range(task_num)):
         save_logical_task(save_dir)
-
 
 def load_logical_tasks(tasks_dir: Path):
     files = tasks_dir.glob("*.json")
@@ -718,4 +726,7 @@ def load_logical_tasks(tasks_dir: Path):
 
 
 if __name__ == "__main__":
-    save_logical_tasks(Path("data/logical_op"), 1000)
+
+    save_logical_tasks(Path("data/logical_op/train"), 1000)
+    save_logical_tasks(Path("data/logical_op/evaluation"), 1000)
+
