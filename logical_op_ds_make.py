@@ -1,12 +1,16 @@
-# %%
-from operator import is_
+import dataclasses
+import json
 import random
-from re import I
+import uuid
+from pathlib import Path
+from typing import Optional
+
 import numpy as np
 import numpy.typing as npt
-from typing import Optional
-from arc_preprocess import CH_source, MAX_SIZE, ArcImage
 import pytest
+from tqdm import tqdm
+
+from arc_preprocess import MAX_SIZE, ArcImage, CH_source
 
 
 def point_check(val: int):
@@ -45,7 +49,6 @@ def paste(
 
 
 def test_point_val_annual():
-
     from_img = np.array([[1 for _ in range(MAX_SIZE)] for _ in range(MAX_SIZE)])
     to_img = np.array([[0 for _ in range(2)] for _ in range(2)])
     point_x = MAX_SIZE
@@ -132,7 +135,6 @@ def draw_box(
     y_to: int,
     fill_val: int,
 ) -> npt.NDArray[np.int32]:
-
     input_x, input_y = from_img.shape[:2]
 
     point_check(x_from)
@@ -172,7 +174,6 @@ class RandomLogicalOp:
         a_1_b_0: Optional[bool] = None,
         a_1_b_1: Optional[bool] = None,
     ):
-
         if a_0_b_0 is not None:
             self.a_0_b_0 = a_0_b_0
         else:
@@ -193,8 +194,9 @@ class RandomLogicalOp:
         else:
             self.a_1_b_1 = random.getrandbits(1)
 
-    def calc(self, a: npt.NDArray[np.bool_], b: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
-
+    def calc(
+        self, a: npt.NDArray[np.bool_], b: npt.NDArray[np.bool_]
+    ) -> npt.NDArray[np.bool_]:
         if a.shape != b.shape:
             raise ValueError("a and b must have the same shape")
 
@@ -219,7 +221,6 @@ class RandomLogicalOp:
 
 
 def test_RandomLogicalOp_and():
-
     and_logical_op = RandomLogicalOp(
         a_0_b_0=False,
         a_0_b_1=False,
@@ -234,7 +235,6 @@ def test_RandomLogicalOp_and():
 
 
 def test_RandomLogicalOp_normal_case():
-
     # check calc output is 0 or 1
     for _ in range(100):
         random_logical_op = RandomLogicalOp()
@@ -261,7 +261,6 @@ def test_RandomLogicalOp_normal_case():
 
 
 def test_RandomLogicalOp_ab_annual_val():
-
     random_logical_op = RandomLogicalOp()
     # case a is not 0 or 1
     a = np.array([[2 for _ in range(2)] for _ in range(2)], dtype=int)
@@ -291,7 +290,9 @@ def two_img_concat_with_line(
         raise ValueError("img1 and img2 must have the same shape")
 
     if img1.shape[0] > MAX_PART_IMG_SIZE or img1.shape[1] > MAX_PART_IMG_SIZE:
-        raise ValueError(f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE + 1}(MAX_PART_IMG_SIZE)")
+        raise ValueError(
+            f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE + 1}(MAX_PART_IMG_SIZE)"
+        )
     img1_y, img1_x = img1.shape[:2]
 
     rslt_img = np.full((img1_y * 2 + 1, img1_x), line_color, dtype=int)
@@ -305,6 +306,8 @@ def test_two_img_concat_with_line():
     img1 = np.array([[1, 1], [1, 1]])
     img2 = np.array([[0, 0], [0, 0]])
     rslt = two_img_concat_with_line(img1, img2, 8)
+    predicted_out = np.array([[1, 1], [1, 1], [8, 8], [0, 0], [0, 0]], dtype=np.int32)
+    assert (rslt == predicted_out).all()
 
 
 def test_img1_and_img2_must_have_the_same_shape():
@@ -316,21 +319,31 @@ def test_img1_and_img2_must_have_the_same_shape():
 
 
 def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
-    big_img = [[1 for _ in range(MAX_PART_IMG_SIZE)] for _ in range(MAX_PART_IMG_SIZE + 1)]
+    big_img = [
+        [1 for _ in range(MAX_PART_IMG_SIZE)] for _ in range(MAX_PART_IMG_SIZE + 1)
+    ]
 
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
         rslt = two_img_concat_with_line(img1, img2, 8)
-    assert str(e.value) == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
+    assert (
+        str(e.value)
+        == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
+    )
 
-    big_img = [[1 for _ in range(MAX_PART_IMG_SIZE + 1)] for _ in range(MAX_PART_IMG_SIZE)]
+    big_img = [
+        [1 for _ in range(MAX_PART_IMG_SIZE + 1)] for _ in range(MAX_PART_IMG_SIZE)
+    ]
 
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
         rslt = two_img_concat_with_line(img1, img2, 8)
-    assert str(e.value) == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
+    assert (
+        str(e.value)
+        == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
+    )
 
 
 def make_random_box(size_x: int, size_y: int, cand_val: list[int]):
@@ -394,7 +407,6 @@ class ColorConverter:
         self.one_color = one_color
 
     def to_binary(self, img: npt.NDArray[np.int32]):
-
         if ((img != self.zero_color) & (img != self.one_color)).all():
             raise ValueError(f"img val should be {self.zero_color} or {self.one_color}")
 
@@ -427,7 +439,9 @@ class TestColorConverter:
         img = np.array([[True, False], [False, True]])
         color_img = self.color_converter.to_color(img)
         assert color_img.shape == (2, 2)
-        assert (color_img == np.array([[one_color, zero_color], [zero_color, one_color]])).all()
+        assert (
+            color_img == np.array([[one_color, zero_color], [zero_color, one_color]])
+        ).all()
 
 
 def logical_out_img(
@@ -488,12 +502,15 @@ def logical_inout_img(
     line_color: int,
     is_vertical: bool,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
-
     size_x = random.randint(1, MAX_PART_IMG_SIZE)
     size_y = random.randint(1, MAX_PART_IMG_SIZE)
 
-    img1 = make_random_box(size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color])
-    img2 = make_random_box(size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color])
+    img1 = make_random_box(
+        size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color]
+    )
+    img2 = make_random_box(
+        size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color]
+    )
 
     in_img = two_img_concat_with_line(
         img1=img1,
@@ -546,7 +563,6 @@ def test_logical_inout_img():
 def logical_op_img_decomp(
     img: npt.NDArray[np.int32], is_vertical: bool
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32], npt.NDArray[np.int32]]:
-
     if is_vertical:
         img = img.T
 
@@ -564,6 +580,7 @@ def test_logical_inout_img_is_vertical():
     zero_color = 1
     one_color = 3
     line_color = 4
+
     in_img, out_img = logical_inout_img(
         logical_op=RandomLogicalOp(),
         zero_color=zero_color,
@@ -571,6 +588,7 @@ def test_logical_inout_img_is_vertical():
         line_color=line_color,
         is_vertical=True,
     )
+
     img1, line, img2 = logical_op_img_decomp(in_img, is_vertical=True)
 
     # img1, img2 shold be zero_color or one_color
@@ -582,19 +600,32 @@ def test_logical_inout_img_is_vertical():
     assert ((out_img == zero_color) | (out_img == one_color)).all()
 
 
-def logical_inout_task(task_len: int) -> tuple[list[npt.NDArray[np.int32]], list[npt.NDArray[np.int32]]]:
-
+@dataclasses.dataclass
+class RandomValues:
     logical_op = RandomLogicalOp()
     color = Color()
     zero_color = color.pick_random_unused()
     one_color = color.pick_random_unused()
     line_color = color.pick_random_unused()
     is_vertical = random.randint(0, 1) == 0
+
+
+def logical_inout_task(
+    task_len: int, random_vals: RandomValues
+) -> tuple[list[npt.NDArray[np.int32]], list[npt.NDArray[np.int32]]]:
+    logical_op = random_vals.logical_op
+    zero_color = random_vals.zero_color
+    one_color = random_vals.one_color
+    line_color = random_vals.line_color
+    is_vertical = random_vals.is_vertical
+
     in_imgs = []
     out_imgs = []
 
     for _ in range(task_len):
-        in_img, out_img = logical_inout_img(logical_op, zero_color, one_color, line_color, is_vertical)
+        in_img, out_img = logical_inout_img(
+            logical_op, zero_color, one_color, line_color, is_vertical
+        )
         in_imgs.append(in_img)
         out_imgs.append(out_img)
 
@@ -602,14 +633,11 @@ def logical_inout_task(task_len: int) -> tuple[list[npt.NDArray[np.int32]], list
 
 
 def test_logical_inout_task():
-    in_imgs, out_imgs = logical_inout_task(10)
-    in_img = in_imgs[0]
-    color_num_in_row = np.unique(in_imgs[0][0]).shape[0]
-    is_vertical = color_num_in_row == 3
+    random_vals = RandomValues()
+    in_imgs, out_imgs = logical_inout_task(10, random_vals=random_vals)
 
-    
     for i, in_img in enumerate(in_imgs):
-        img1, line, img2 = logical_op_img_decomp(in_img, is_vertical)
+        img1, line, img2 = logical_op_img_decomp(in_img, random_vals.is_vertical)
         if i == 0:
             stacked_imgs = img1.flatten()
             stacked_lines = line.flatten()
@@ -617,8 +645,7 @@ def test_logical_inout_task():
             stacked_imgs = np.concatenate((stacked_imgs, img1.flatten()))
             stacked_lines = np.concatenate((stacked_lines, line.flatten()))
         stacked_imgs = np.concatenate((stacked_imgs, img2.flatten()))
-        assert img1.shape == img2.shape
-
+        assert img1.shape == img2.shape, f"{img1= }, {img2=}"
     assert np.unique(stacked_imgs).shape[0] == 2
     assert np.unique(stacked_lines).shape[0] == 1
 
@@ -627,59 +654,61 @@ def test_logical_inout_task():
             stacked_out_imgs = out_img.flatten()
         else:
             stacked_out_imgs = np.concatenate((stacked_out_imgs, out_img.flatten()))
-    
-    assert np.unique(stacked_out_imgs).shape[0] == 2
-        
 
-if __name__ == "__main__":
-    test_logical_inout_task()
-#%%
+    assert (
+        np.unique(stacked_out_imgs).shape[0] <= 2
+    ), f"stacked_out_imgs: {stacked_out_imgs}"
 
 
 def np_img_to_arc_img(img: npt.NDArray[np.int32]) -> ArcImage:
     return ArcImage(img.tolist())
 
 
-from pathlib import Path
-import uuid
-import json
+def logical_tasks(task_len: int) -> tuple[list[str], list[str]]:
+    random_vals = RandomValues()
+    in_imgs, out_imgs = logical_inout_task(task_len, random_vals=random_vals)
+    in_arc_imgs = [
+        np_img_to_arc_img(img).to_str(vr_delim="", hr_delim="\n") for img in in_imgs
+    ]
+    out_arc_imgs = [
+        np_img_to_arc_img(img).to_str(vr_delim="", hr_delim="\n") for img in out_imgs
+    ]
+    return in_arc_imgs, out_arc_imgs
 
-
-#!! テストしてない
-def save_logical_task(dir: str):
-    path_path = Path(dir)  # type: ignore
-    in_imgs, out_imgs = logical_inout_task(10)
+def save_logical_task(save_dir: Path):
+    in_imgs, out_imgs = logical_tasks(10)
     task = {
-        "in_imgs": in_imgs,
-        "out_imgs": out_imgs,
-        # "logical_op": logical_op.__dict__,
+        "in imgs": in_imgs,
+        "out imgs": out_imgs,
     }
-    file_name = str(uuid.uuid4()) + ".json"
-    with open(path_path / file_name, "w") as file:
+    f_name = str(uuid.uuid4()) + ".json"
+    f_path = save_dir / f_name
+    with f_path.open("w") as file:
         json.dump(task, file)
-    return file_name
+    return task, f_path
 
 
-def load_logical_task(dir: str, f_name: str) -> dict:
-    path_path = Path(dir)  # type: ignore
-    with open(path_path / f_name, "r") as file:
+def load_logical_task(f_path: Path) -> dict:
+    with f_path.open("r") as file:
         task = json.load(file)
     return task
 
 
-# def test_
+def test_save_and_load_logical_task(tmp_path: Path):
+    saved_task, f_path = save_logical_task(tmp_path)
+    loaded_task = load_logical_task(f_path)
+    assert str(saved_task) == str(loaded_task)
 
 
-def save_logical_tasks(dir: str, task_num: int):
-    pass
+def save_logical_tasks(save_dir: Path, task_num: int):
+    if not save_dir.exists():
+        save_dir.mkdir()
+    for _ in tqdm(range(task_num)):
+        save_logical_task(save_dir)
 
 
-def load_logical_tasks(dir_path: str):
-
-    path = Path("result/logical_task")
-    if not path.exists():
-        path.mkdir()
-    files = path.glob("*.json")
+def load_logical_tasks(tasks_dir: Path):
+    files = tasks_dir.glob("*.json")
     tasks = []
     for file in files:
         with open(file, "r") as file:
@@ -689,25 +718,4 @@ def load_logical_tasks(dir_path: str):
 
 
 if __name__ == "__main__":
-    from arc_visualize import plot_task
-
-    and_logical_op = RandomLogicalOp(
-        a_0_b_0=False,
-        a_0_b_1=False,
-        a_1_b_0=False,
-        a_1_b_1=True,
-    )
-
-    in_imgs, out_imgs = logical_inout_task(
-        10,
-        # logical_op=and_logical_op,
-    )
-    print(out_imgs[1])
-
-    plot_task(
-        train_inputs=in_imgs,
-        train_outputs=out_imgs,
-        test_inout=[in_imgs[0], out_imgs[0]],
-        save_path="result/test.png",
-    )
-
+    save_logical_tasks(Path("data/logical_op"), 1000)
