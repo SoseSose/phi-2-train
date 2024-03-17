@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from arc_preprocess import ArcImage, ArcInout, ArcTask
 
-from const import ArcConst
+from const import ArcConst, Color
 
 MIN_COLOR_NUM = ArcConst.MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst.MAX_COLOR_NUM
@@ -352,20 +352,6 @@ def test_make_random_box():
     rslt = make_random_box(2, 2, [0, 1])
     assert rslt.shape == (2, 2)
     assert ((rslt == 0) | (rslt == 1)).all()
-
-
-class Color:
-    def __init__(self):
-        self.color_cand = [i for i in range(MAX_COLOR_NUM)]
-
-    def pick_random_unused(self, index: Optional[int] = None) -> int:
-        if index is not None:
-            if index < 0 or index >= len(self.color_cand):
-                raise Exception(f"index must be 0 <= index < {len(self.color_cand)}")
-            picked = self.color_cand.pop(index)
-        else:
-            picked = self.color_cand.pop(random.randint(0, len(self.color_cand) - 1))
-        return picked
 
 
 def test_color_pick():
