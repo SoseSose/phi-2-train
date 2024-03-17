@@ -1,18 +1,19 @@
 # %%
-import difflib
 import json
 from dataclasses import dataclass
 from pathlib import Path
 import textwrap
-from typing import Any, List, Union
+from typing import List, Union
 
-# from arc_visualize import CH_source, MAX_SIZE
 import numpy as np
 import numpy.typing as npt
 import pytest
 
-CH_source = 10
-MAX_SIZE = 30
+from const import ArcConst
+
+MIN_COLOR_NUM = ArcConst().MIN_COLOR_NUM
+MAX_COLOR_NUM = ArcConst().MAX_COLOR_NUM
+MAX_SIZE = ArcConst().MAX_IMG_SIZE
 
 
 class ArcImage:
@@ -29,10 +30,10 @@ class ArcImage:
             for num in row:
                 if not isinstance(num, int):
                     raise ValueError("All elements must be int.")
-                if num < 0:
+                if num < MIN_COLOR_NUM:
                     raise ValueError("All elements must be > 0")
-                if num > CH_source:
-                    raise ValueError("All elements must be < {}".format(CH_source))
+                if num > MAX_COLOR_NUM:
+                    raise ValueError("All elements must be < {}".format(MAX_COLOR_NUM))
 
         if isinstance(original_2d_list, list):
             self.img = original_2d_list
@@ -129,7 +130,6 @@ class ArcTask:
     train: list[ArcInout]
     test: ArcInout
     candidate: list[ArcImage]
-    name: str
 
     @property
     def train_inputs(self) -> list[ArcImage]:
@@ -180,6 +180,92 @@ class ArcTask:
     def __str__(self) -> str:
         return self.to_str("train", "test")
 
+class TestArcTask:
+    def test_train_inputs(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.train_inputs == [true_arc_image, true_arc_image]
+
+    def test_train_outputs(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.train_outputs == [false_arc_image, false_arc_image]
+
+    def test_test_input(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.test_input == true_arc_image
+
+    def test_test_output(self):
+        true_arc_image = ArcImage([[1, 2], [3, 4]])
+        false_arc_image = ArcImage([[5, 6], [7, 8]])
+        arc_inout = ArcInout(true_arc_image, false_arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[false_arc_image],
+        )
+        assert arc_task.test_output == false_arc_image
+
+    def test_str(self):
+        test_image = [[1, 2], [3, 4]]
+        arc_image = ArcImage(test_image)
+        arc_inout = ArcInout(arc_image, arc_image)
+        arc_task = ArcTask(
+            train=[arc_inout, arc_inout],
+            test=arc_inout,
+            candidate=[arc_image],
+        )
+
+        rslt = arc_task.to_str("train", "test", show_candidata=True, show_test_out=True)
+
+        need_str = """\
+        -train0-
+        12
+        34
+        ->
+        12
+        34
+        
+        -train1-
+        12
+        34
+        ->
+        12
+        34
+
+        -candidate0-
+        12
+        34
+        
+        -test-
+        12
+        34
+        ->
+        12
+        34
+        """
+
+        need_str = textwrap.dedent(need_str).strip()
+        assert rslt == need_str
 
 FAKE_NUM = 8
 
@@ -221,7 +307,7 @@ class ArcTaskSet:
             candidate.append(ArcImage(two_cand["input"]))
             candidate.append(ArcImage(two_cand["output"]))
 
-        return ArcTask(train, true_test_inout, candidate, task["name"])
+        return ArcTask(train, true_test_inout, candidate)
 
     def path_to_arc_task(self, data_path: str) -> List[ArcTask]:
         """
@@ -257,105 +343,6 @@ def str_to_arc_image(string: str) -> ArcImage:
     two_d_list = [[int(num) for num in row] for row in two_d_list]
     two_d_list = ArcImage(two_d_list)
     return two_d_list
-
-
-class TestArcTask:
-    def test_train_inputs(self):
-        true_arc_image = ArcImage([[1, 2], [3, 4]])
-        false_arc_image = ArcImage([[5, 6], [7, 8]])
-        arc_inout = ArcInout(true_arc_image, false_arc_image)
-        arc_task = ArcTask(
-            train=[arc_inout, arc_inout],
-            test=arc_inout,
-            candidate=[false_arc_image],
-            name="test double",
-        )
-        assert arc_task.train_inputs == [true_arc_image, true_arc_image]
-
-    def test_train_outputs(self):
-        true_arc_image = ArcImage([[1, 2], [3, 4]])
-        false_arc_image = ArcImage([[5, 6], [7, 8]])
-        arc_inout = ArcInout(true_arc_image, false_arc_image)
-        arc_task = ArcTask(
-            train=[arc_inout, arc_inout],
-            test=arc_inout,
-            candidate=[false_arc_image],
-            name = "test double",
-        )
-        assert arc_task.train_outputs == [false_arc_image, false_arc_image]
-
-    def test_test_input(self):
-        true_arc_image = ArcImage([[1, 2], [3, 4]])
-        false_arc_image = ArcImage([[5, 6], [7, 8]])
-        arc_inout = ArcInout(true_arc_image, false_arc_image)
-        arc_task = ArcTask(
-            train=[arc_inout, arc_inout],
-            test=arc_inout,
-            candidate=[false_arc_image],
-            name = "test double",
-        )
-        assert arc_task.test_input == true_arc_image
-
-    def test_test_output(self):
-        true_arc_image = ArcImage([[1, 2], [3, 4]])
-        false_arc_image = ArcImage([[5, 6], [7, 8]])
-        arc_inout = ArcInout(true_arc_image, false_arc_image)
-        arc_task = ArcTask(
-            train=[arc_inout, arc_inout],
-            test=arc_inout,
-            candidate=[false_arc_image],
-            name = "test double",
-        )
-        assert arc_task.test_output == false_arc_image
-
-    def test_str(self):
-        test_image = [[1, 2], [3, 4]]
-        arc_image = ArcImage(test_image)
-        arc_inout = ArcInout(arc_image, arc_image)
-        arc_task = ArcTask(
-            train=[arc_inout, arc_inout],
-            test=arc_inout,
-            candidate=[arc_image],
-            name="test double",
-        )
-
-        rslt = arc_task.to_str("train", "test", show_candidata=True, show_test_out=True)
-
-        need_str = """\
-        -train0-
-        12
-        34
-        ->
-        12
-        34
-        
-        -train1-
-        12
-        34
-        ->
-        12
-        34
-
-        -candidate0-
-        12
-        34
-        
-        -test-
-        12
-        34
-        ->
-        12
-        34
-        """
-
-        need_str = textwrap.dedent(need_str).strip()
-        print("\n".join(difflib.ndiff(rslt.strip(), need_str.strip())))
-        print(rslt)
-        print("----")
-        print(need_str)
-        assert rslt == need_str
-if __name__ == "__main__":
-    TestArcTask().test_str()
 
 
 #%%
