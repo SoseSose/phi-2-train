@@ -18,14 +18,19 @@ from const import ArcConst
 MIN_COLOR_NUM = ArcConst.MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst.MAX_COLOR_NUM
 MAX_IMG_SIZE = ArcConst.MAX_IMG_SIZE
-MIN_IMG_SIZE = ArcConst.MAX_IMG_SIZE
+MIN_IMG_SIZE = ArcConst.MIN_IMG_SIZE
+MAX_PART_IMG_SIZE = int(MAX_IMG_SIZE / 2) - 1
+
+LOGICAL_OP_MIN_SIZE = 5
+
+
 
 
 def point_check(val: int):
-    if val < MIN_IMG_SIZE:
-        raise ValueError("Point val must be > 0")
-    if val >= MAX_IMG_SIZE:
-        raise ValueError("Point val must be < {}(MAX SIZE)".format(MAX_IMG_SIZE))
+    if val > MAX_IMG_SIZE-1:
+        raise ValueError(f"Point val must be >= {MAX_IMG_SIZE-1} and <{MIN_IMG_SIZE-1}, but {val} is given")
+    elif val < MIN_IMG_SIZE-1:
+        raise ValueError(f"Point val must be >= {MAX_IMG_SIZE-1} and <{MIN_IMG_SIZE-1}, but {val} is given")
 
 
 def from_to_check(from_val: int, to_val: int):
@@ -65,30 +70,30 @@ def test_point_val_annual():
     # check point_x lager than MAX_SIZE
     with pytest.raises(Exception) as e:
         _ = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == f"Point val must be < {MAX_IMG_SIZE}(MAX SIZE)"
+    assert str(e.value) == f"Point val must be >= {MAX_IMG_SIZE-1} and <{MIN_IMG_SIZE-1}, but {point_x} is given"
 
     # check point_y lager than MAX_SIZE
     point_x = 0
     point_y = MAX_IMG_SIZE
     with pytest.raises(Exception) as e:
         _ = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == f"Point val must be < {MAX_IMG_SIZE}(MAX SIZE)"
+    assert str(e.value) == f"Point val must be >= {MAX_IMG_SIZE-1} and <{MIN_IMG_SIZE-1}, but {point_y} is given"
 
     # check_point_x negative
     point_x = -1
     point_y = 1
     with pytest.raises(Exception) as e:
         _ = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == "Point val must be > 0"
+    assert str(e.value) == f"Point val must be >= {MAX_IMG_SIZE-1} and <{MIN_IMG_SIZE-1}, but {point_x} is given"
 
     # check_point_y negative
     point_x = 1
     point_y = -1
     with pytest.raises(Exception) as e:
         _ = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == "Point val must be > 0"
+    assert str(e.value) == f"Point val must be >= {MAX_IMG_SIZE-1} and <{MIN_IMG_SIZE-1}, but {point_y} is given"
 
-
+#%%
 def test_paint_spill_oper():
     # from_imgに指定されたポイントで貼り付けるとはみ出る場合をテストする
 
@@ -283,7 +288,6 @@ def test_RandomLogicalOp_ab_annual_val():
     assert str(e.value) == "b should be bool val"
 
 
-MAX_PART_IMG_SIZE = int(MAX_IMG_SIZE / 2) - 1
 
 
 def two_img_concat_with_line(
@@ -483,9 +487,6 @@ def test_logical_out_img():
     assert str(e.value) == "img1 and img2 must have the same shape"
 
 
-if __name__ == "__main__":
-    test_logical_out_img()
-
 
 def logical_inout_img(
     logical_op: RandomLogicalOp,
@@ -494,8 +495,8 @@ def logical_inout_img(
     line_color: int,
     is_vertical: bool,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
-    size_x = random.randint(1, MAX_PART_IMG_SIZE)
-    size_y = random.randint(1, MAX_PART_IMG_SIZE)
+    size_x = random.randint(LOGICAL_OP_MIN_SIZE, MAX_PART_IMG_SIZE)
+    size_y = random.randint(LOGICAL_OP_MIN_SIZE, MAX_PART_IMG_SIZE)
 
     img1 = make_random_box(size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color])
     img2 = make_random_box(size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color])
@@ -648,7 +649,7 @@ def np_img_to_arc_img(img: npt.NDArray[np.int32]) -> ArcImage:
     return ArcImage(img.tolist())
 
 
-def logical_tasks(train_task_len: int) -> tuple[list[str], list[str]]:
+def logical_task(train_task_len: int) -> ArcTask:
     random_vals = RandomValues()
     in_imgs, out_imgs = logical_inout_task(
         train_task_len + 1,
@@ -662,26 +663,21 @@ def logical_tasks(train_task_len: int) -> tuple[list[str], list[str]]:
         inout_list.append(ArcInout(in_arc_img, out_arc_img))
     
     train_inout_list = inout_list[:train_task_len]
-    test_inout_list = inout_list[train_task_len:]
+    test_inout_list = inout_list[-1]
 
     fake_candidate = in_arc_imgs
     #!dataclassesでOptionalが使えないのでとりあえずfakeとしてin_arc_imgsを使う
     rslt = ArcTask(train_inout_list, test_inout_list, fake_candidate)
-    
-
-    return in_arc_imgs, out_arc_imgs
+    return rslt
 
 
-def save_logical_task(save_dir: Path):
-    in_imgs, out_imgs = logical_tasks(10)
-    task = {
-        "in imgs": in_imgs,
-        "out imgs": out_imgs,
-    }
+def save_logical_task(save_dir: Path, task_len:int):
+    task = logical_task(task_len)
+
     f_name = str(uuid.uuid4()) + ".json"
     f_path = save_dir / f_name
     with f_path.open("w") as file:
-        json.dump(task, file)
+        json.dump(str(task), file)
     return task, f_path
 
 
@@ -692,12 +688,12 @@ def load_logical_task(f_path: Path) -> dict:
 
 
 def test_save_and_load_logical_task(tmp_path: Path):
-    saved_task, f_path = save_logical_task(tmp_path)
+    saved_task, f_path = save_logical_task(tmp_path, task_len=10)
     loaded_task = load_logical_task(f_path)
     assert str(saved_task) == str(loaded_task)
 
 
-def save_logical_tasks(save_dir: Path, task_num: int):
+def save_logical_tasks(save_dir: Path, task_num: int, task_len:int):
     print(f"save logical op tasks to {save_dir}...")
 
     if save_dir.exists():
@@ -709,7 +705,7 @@ def save_logical_tasks(save_dir: Path, task_num: int):
         save_dir.mkdir()
 
     for _ in tqdm(range(task_num)):
-        save_logical_task(save_dir)
+        save_logical_task(save_dir, task_len=task_len)
 
 
 def load_logical_tasks(tasks_dir: Path):
@@ -723,6 +719,7 @@ def load_logical_tasks(tasks_dir: Path):
 
 
 if __name__ == "__main__":
-
-    save_logical_tasks(Path("data/logical_op/train"), 1000)
-    save_logical_tasks(Path("data/logical_op/evaluation"), 1000)
+    print(logical_task(10).to_str("train", "test"))
+#%%
+    save_logical_tasks(Path("data/logical_op/train"), 1000, 10)
+    save_logical_tasks(Path("data/logical_op/evaluation"), 1000, 10)
