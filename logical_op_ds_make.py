@@ -315,7 +315,7 @@ def test_img1_and_img2_must_have_the_same_shape():
     img1 = np.array([[1, 1], [1, 1]])
     img2 = np.array([[0, 0, 0], [0, 0, 0]])
     with pytest.raises(Exception) as e:
-        rslt = two_img_concat_with_line(img1, img2, 8)
+        _ = two_img_concat_with_line(img1, img2, 8)
     assert str(e.value) == "img1 and img2 must have the same shape"
 
 
