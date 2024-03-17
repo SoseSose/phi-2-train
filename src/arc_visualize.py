@@ -6,7 +6,12 @@ from matplotlib.figure import Figure
 from typing import Union, Optional
 from pathlib import Path
 import pytest
-from arc_preprocess import CH_source
+
+from const import ArcConst
+
+MIN_COLOR_NUM   = ArcConst.MIN_COLOR_NUM
+MAX_COLOR_NUM = ArcConst.MAX_COLOR_NUM
+MAX_IMG_SIZE = ArcConst.MAX_IMG_SIZE
 
 #!　将来的にarcのメタデータを入手できるように
 #! figやgsの処理が甘い。もっとシンプルに書けるはず。
@@ -34,7 +39,7 @@ def plot_one(ax, input, show_num=False):
         "#808080",
     ]
     cmap = colors.ListedColormap(color_list)
-    norm = colors.Normalize(0, CH_source)
+    norm = colors.Normalize(MIN_COLOR_NUM, MAX_COLOR_NUM)
     ax.imshow(input, cmap=cmap, norm=norm)
 
     shape = input.shape
@@ -44,7 +49,7 @@ def plot_one(ax, input, show_num=False):
     ax.set_yticks([x - 0.5 for x in range(1 + shape[0])])
     ax.set_xticks([x - 0.5 for x in range(1 + shape[1])])
 
-    if show_num == True:
+    if show_num:
         for x in range(shape[1]):
             for y in range(shape[0]):
                 plt.text(x, y, str(input[y, x]), size=6)
@@ -72,7 +77,7 @@ def input_format(
     elif input_dim == 4:
         input = np.argmax(input, axis=-1)
 
-    if pad != None:
+    if pad is not None:
         rslt = []
         for val in input:
             shape = val.shape
@@ -112,9 +117,9 @@ def plot_some(
     w = vis_len // (input_len + 1)
     for i, val in enumerate(input):
 
-        if type(title) == str:
+        if isinstance(title, str):
             retitle = title + ":" + str(i)
-        elif type(title) == list:
+        elif isinstance(title, list):
             retitle = title[i] 
         else:
             raise ValueError("title must be str or list")
@@ -145,7 +150,7 @@ def plot_task(
         model_answer : [H, W, C]であるarc_image. Defaults to None. Noneの場合は表示しない。
         save_path: Defaults to None. Noneの場合は表示する。strの場合はその名前で保存する。
     """
-    fig = plt.figure(figsize=(30, 30))
+    fig = plt.figure(figsize=(MAX_IMG_SIZE, MAX_IMG_SIZE))
 
     height = 3
     if not isinstance(candidate, type(None)):
@@ -172,11 +177,12 @@ def plot_task(
         gs_index += 1
         plot_some([model_answer], "model answer", fig, gs, gs_index, vis_len)
 
-    if save_path == None:
+    if save_path is not None:
         plt.show()
-    else:
+    elif isinstance(save_path, str):
         fig.savefig(save_path)
         plt.close()
+    
 
 def test_plot_task():
 
