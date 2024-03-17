@@ -1,20 +1,24 @@
 # %%
+import difflib
+import json
 from dataclasses import dataclass
 from pathlib import Path
-import json
+import textwrap
 from typing import Any, List, Union
 
 # from arc_visualize import CH_source, MAX_SIZE
 import numpy as np
 import numpy.typing as npt
+import pytest
 
 CH_source = 10
 MAX_SIZE = 30
 
+
 class ArcImage:
-
-    def __init__(self, original_2d_list: Union[List[List[int]], npt.NDArray[np.int32]]) -> None:
-
+    def __init__(
+        self, original_2d_list: Union[List[List[int]], npt.NDArray[np.int32]]
+    ) -> None:
         for row in original_2d_list:
             if len(row) != len(original_2d_list[0]):
                 raise ValueError("All rows must have the same length.")
@@ -38,7 +42,6 @@ class ArcImage:
         self.x = len(original_2d_list[0])
         self.y = len(original_2d_list)
 
-
     def to_str(self, vr_delim, hr_delim) -> str:
         char_two_d_list = [[str(one_num) for one_num in row] for row in self.img]
         # num to char
@@ -52,17 +55,17 @@ class ArcImage:
         return self.to_str(vr_delim="", hr_delim="\n")
 
     @property
-    def to_np(self)->npt.NDArray[np.int32]:
+    def to_np(self) -> npt.NDArray[np.int32]:
         return np.array(self.img)
 
     def __array__(self):
         return np.array(self.img)
 
 
-import pytest
+
+
 
 class TestArcImage:
-
     def test_init_normal(self):
         test_image = [[i for i in range(11)] for _ in range(6)]
         arc_image = ArcImage(test_image)
@@ -162,15 +165,15 @@ class ArcTask:
         for i, inout in enumerate(self.train):
             rslt += f"-{train_name}{i}-\n{inout}\n\n"
 
-        rslt += f"-{test_name}-\n"
-        rslt += f"\n{self.test_input}\n->\n"
-
-        if show_test_out:
-            rslt += f"output:\n{self.test_output}\n\n"
-
         if show_candidata:
             for i, one_candidate in enumerate(self.candidate):
-                rslt += f"-candidate{i}-\n{one_candidate}\n"
+                rslt += f"-candidate{i}-\n{one_candidate}\n\n"
+
+        rslt += f"-{test_name}-\n"
+        rslt += f"{self.test_input}\n->"
+
+        if show_test_out:
+            rslt += f"\n{self.test_output}"
 
         return rslt
 
@@ -256,10 +259,7 @@ def str_to_arc_image(string: str) -> ArcImage:
     return two_d_list
 
 
-
-
 class TestArcTask:
-
     def test_train_inputs(self):
         true_arc_image = ArcImage([[1, 2], [3, 4]])
         false_arc_image = ArcImage([[5, 6], [7, 8]])
@@ -268,6 +268,7 @@ class TestArcTask:
             train=[arc_inout, arc_inout],
             test=arc_inout,
             candidate=[false_arc_image],
+            name="test double",
         )
         assert arc_task.train_inputs == [true_arc_image, true_arc_image]
 
@@ -279,6 +280,7 @@ class TestArcTask:
             train=[arc_inout, arc_inout],
             test=arc_inout,
             candidate=[false_arc_image],
+            name = "test double",
         )
         assert arc_task.train_outputs == [false_arc_image, false_arc_image]
 
@@ -290,6 +292,7 @@ class TestArcTask:
             train=[arc_inout, arc_inout],
             test=arc_inout,
             candidate=[false_arc_image],
+            name = "test double",
         )
         assert arc_task.test_input == true_arc_image
 
@@ -301,6 +304,7 @@ class TestArcTask:
             train=[arc_inout, arc_inout],
             test=arc_inout,
             candidate=[false_arc_image],
+            name = "test double",
         )
         assert arc_task.test_output == false_arc_image
 
@@ -312,12 +316,51 @@ class TestArcTask:
             train=[arc_inout, arc_inout],
             test=arc_inout,
             candidate=[arc_image],
+            name="test double",
         )
-        need_str = "-train0-\ninput:\n12\n34\noutput:\n12\n34\n\n-train1-\ninput:\n12\n34\noutput:\n12\n34\n\n-test-\ninput:\n12\n34\noutput:\n12\n34\n\n-candidate0-\n12\n34\n"
-        assert str(arc_task) == need_str
 
+        rslt = arc_task.to_str("train", "test", show_candidata=True, show_test_out=True)
+
+        need_str = """\
+        -train0-
+        12
+        34
+        ->
+        12
+        34
+        
+        -train1-
+        12
+        34
+        ->
+        12
+        34
+
+        -candidate0-
+        12
+        34
+        
+        -test-
+        12
+        34
+        ->
+        12
+        34
+        """
+
+        need_str = textwrap.dedent(need_str).strip()
+        print("\n".join(difflib.ndiff(rslt.strip(), need_str.strip())))
+        print(rslt)
+        print("----")
+        print(need_str)
+        assert rslt == need_str
+if __name__ == "__main__":
+    TestArcTask().test_str()
+
+
+#%%
 
 class TestArcTaskSet:
     def test_op_path_to_arc_task(self):
         arc_task_set = ArcTaskSet()
-        tasks = arc_task_set.path_to_arc_task("data/training")
+        _ = arc_task_set.path_to_arc_task("data/training")
