@@ -1,4 +1,4 @@
-#%%
+# %%
 import dataclasses
 import json
 import random
@@ -11,14 +11,21 @@ import numpy.typing as npt
 import pytest
 from tqdm import tqdm
 
-from arc_preprocess import MAX_SIZE, ArcImage, CH_source
+from arc_preprocess import ArcImage, ArcInout, ArcTask
+
+from const import ArcConst
+
+MIN_COLOR_NUM = ArcConst.MIN_COLOR_NUM
+MAX_COLOR_NUM = ArcConst.MAX_COLOR_NUM
+MAX_IMG_SIZE = ArcConst.MAX_IMG_SIZE
+MIN_IMG_SIZE = ArcConst.MAX_IMG_SIZE
 
 
 def point_check(val: int):
-    if val < 0:
+    if val < MIN_IMG_SIZE:
         raise ValueError("Point val must be > 0")
-    if val >= MAX_SIZE:
-        raise ValueError("Point val must be < {}(MAX SIZE)".format(MAX_SIZE))
+    if val >= MAX_IMG_SIZE:
+        raise ValueError("Point val must be < {}(MAX SIZE)".format(MAX_IMG_SIZE))
 
 
 def from_to_check(from_val: int, to_val: int):
@@ -50,22 +57,22 @@ def paste(
 
 
 def test_point_val_annual():
-    from_img = np.array([[1 for _ in range(MAX_SIZE)] for _ in range(MAX_SIZE)])
+    from_img = np.array([[1 for _ in range(MAX_IMG_SIZE)] for _ in range(MAX_IMG_SIZE)])
     to_img = np.array([[0 for _ in range(2)] for _ in range(2)])
-    point_x = MAX_SIZE
+    point_x = MAX_IMG_SIZE
     point_y = 0
 
     # check point_x lager than MAX_SIZE
     with pytest.raises(Exception) as e:
         _ = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == f"Point val must be < {MAX_SIZE}(MAX SIZE)"
+    assert str(e.value) == f"Point val must be < {MAX_IMG_SIZE}(MAX SIZE)"
 
     # check point_y lager than MAX_SIZE
     point_x = 0
-    point_y = MAX_SIZE
+    point_y = MAX_IMG_SIZE
     with pytest.raises(Exception) as e:
         _ = paste(from_img, to_img, point_x, point_y)
-    assert str(e.value) == f"Point val must be < {MAX_SIZE}(MAX SIZE)"
+    assert str(e.value) == f"Point val must be < {MAX_IMG_SIZE}(MAX SIZE)"
 
     # check_point_x negative
     point_x = -1
@@ -195,9 +202,7 @@ class RandomLogicalOp:
         else:
             self.a_1_b_1 = random.getrandbits(1)
 
-    def calc(
-        self, a: npt.NDArray[np.bool_], b: npt.NDArray[np.bool_]
-    ) -> npt.NDArray[np.bool_]:
+    def calc(self, a: npt.NDArray[np.bool_], b: npt.NDArray[np.bool_]) -> npt.NDArray[np.bool_]:
         if a.shape != b.shape:
             raise ValueError("a and b must have the same shape")
 
@@ -278,7 +283,7 @@ def test_RandomLogicalOp_ab_annual_val():
     assert str(e.value) == "b should be bool val"
 
 
-MAX_PART_IMG_SIZE = int(MAX_SIZE / 2) - 1
+MAX_PART_IMG_SIZE = int(MAX_IMG_SIZE / 2) - 1
 
 
 def two_img_concat_with_line(
@@ -291,9 +296,7 @@ def two_img_concat_with_line(
         raise ValueError("img1 and img2 must have the same shape")
 
     if img1.shape[0] > MAX_PART_IMG_SIZE or img1.shape[1] > MAX_PART_IMG_SIZE:
-        raise ValueError(
-            f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE + 1}(MAX_PART_IMG_SIZE)"
-        )
+        raise ValueError(f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE + 1}(MAX_PART_IMG_SIZE)")
     img1_y, img1_x = img1.shape[:2]
 
     rslt_img = np.full((img1_y * 2 + 1, img1_x), line_color, dtype=int)
@@ -320,31 +323,21 @@ def test_img1_and_img2_must_have_the_same_shape():
 
 
 def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
-    big_img = [
-        [1 for _ in range(MAX_PART_IMG_SIZE)] for _ in range(MAX_PART_IMG_SIZE + 1)
-    ]
+    big_img = [[1 for _ in range(MAX_PART_IMG_SIZE)] for _ in range(MAX_PART_IMG_SIZE + 1)]
 
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
         _ = two_img_concat_with_line(img1, img2, 8)
-    assert (
-        str(e.value)
-        == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
-    )
+    assert str(e.value) == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
 
-    big_img = [
-        [1 for _ in range(MAX_PART_IMG_SIZE + 1)] for _ in range(MAX_PART_IMG_SIZE)
-    ]
+    big_img = [[1 for _ in range(MAX_PART_IMG_SIZE + 1)] for _ in range(MAX_PART_IMG_SIZE)]
 
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
         _ = two_img_concat_with_line(img1, img2, 8)
-    assert (
-        str(e.value)
-        == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
-    )
+    assert str(e.value) == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
 
 
 def make_random_box(size_x: int, size_y: int, cand_val: list[int]):
@@ -359,7 +352,7 @@ def test_make_random_box():
 
 class Color:
     def __init__(self):
-        self.color_cand = [i for i in range(CH_source)]
+        self.color_cand = [i for i in range(MAX_COLOR_NUM)]
 
     def pick_random_unused(self, index: Optional[int] = None) -> int:
         if index is not None:
@@ -381,7 +374,7 @@ def test_color_pick():
 
 def test_all_color_pick():
     color = Color()
-    for i in range(CH_source):
+    for i in range(MAX_COLOR_NUM):
         picked_color = color.pick_random_unused(index=0)
         assert picked_color == i
 
@@ -389,17 +382,17 @@ def test_all_color_pick():
     color = Color()
     with pytest.raises(Exception) as e:
         picked_color = color.pick_random_unused(index=-1)
-    assert str(e.value) == f"index must be 0 <= index < {CH_source}"
+    assert str(e.value) == f"index must be 0 <= index < {MAX_COLOR_NUM}"
 
     # it should not be
     color = Color()
-    picked_color = color.pick_random_unused(index=CH_source - 1)
+    picked_color = color.pick_random_unused(index=MAX_COLOR_NUM - 1)
 
     # it should be error
     color = Color()
     with pytest.raises(Exception) as e:
-        picked_color = color.pick_random_unused(index=CH_source)
-    assert str(e.value) == f"index must be 0 <= index < {CH_source}"
+        picked_color = color.pick_random_unused(index=MAX_COLOR_NUM)
+    assert str(e.value) == f"index must be 0 <= index < {MAX_COLOR_NUM}"
 
 
 class ColorConverter:
@@ -440,9 +433,7 @@ class TestColorConverter:
         img = np.array([[True, False], [False, True]])
         color_img = self.color_converter.to_color(img)
         assert color_img.shape == (2, 2)
-        assert (
-            color_img == np.array([[one_color, zero_color], [zero_color, one_color]])
-        ).all()
+        assert (color_img == np.array([[one_color, zero_color], [zero_color, one_color]])).all()
 
 
 def logical_out_img(
@@ -506,12 +497,8 @@ def logical_inout_img(
     size_x = random.randint(1, MAX_PART_IMG_SIZE)
     size_y = random.randint(1, MAX_PART_IMG_SIZE)
 
-    img1 = make_random_box(
-        size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color]
-    )
-    img2 = make_random_box(
-        size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color]
-    )
+    img1 = make_random_box(size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color])
+    img2 = make_random_box(size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color])
 
     in_img = two_img_concat_with_line(
         img1=img1,
@@ -521,7 +508,7 @@ def logical_inout_img(
 
     color_converter = ColorConverter(zero_color, one_color)
     out_img = logical_out_img(
-       img1=img1,
+        img1=img1,
         img2=img2,
         color_converter=color_converter,
         logical_op=logical_op,
@@ -624,9 +611,7 @@ def logical_inout_task(
     out_imgs = []
 
     for _ in range(task_len):
-        in_img, out_img = logical_inout_img(
-            logical_op, zero_color, one_color, line_color, is_vertical
-        )
+        in_img, out_img = logical_inout_img(logical_op, zero_color, one_color, line_color, is_vertical)
         in_imgs.append(in_img)
         out_imgs.append(out_img)
 
@@ -656,25 +641,36 @@ def test_logical_inout_task():
         else:
             stacked_out_imgs = np.concatenate((stacked_out_imgs, out_img.flatten()))
 
-    assert (
-        np.unique(stacked_out_imgs).shape[0] <= 2
-    ), f"stacked_out_imgs: {stacked_out_imgs}"
+    assert np.unique(stacked_out_imgs).shape[0] <= 2, f"stacked_out_imgs: {stacked_out_imgs}"
 
 
 def np_img_to_arc_img(img: npt.NDArray[np.int32]) -> ArcImage:
     return ArcImage(img.tolist())
 
 
-def logical_tasks(task_len: int) -> tuple[list[str], list[str]]:
+def logical_tasks(train_task_len: int) -> tuple[list[str], list[str]]:
     random_vals = RandomValues()
-    in_imgs, out_imgs = logical_inout_task(task_len, random_vals=random_vals)
-    in_arc_imgs = [
-        np_img_to_arc_img(img).to_str(vr_delim="", hr_delim="\n") for img in in_imgs
-    ]
-    out_arc_imgs = [
-        np_img_to_arc_img(img).to_str(vr_delim="", hr_delim="\n") for img in out_imgs
-    ]
+    in_imgs, out_imgs = logical_inout_task(
+        train_task_len + 1,
+        random_vals=random_vals,
+    )
+    in_arc_imgs = [np_img_to_arc_img(img) for img in in_imgs]
+    out_arc_imgs = [np_img_to_arc_img(img) for img in out_imgs]
+
+    inout_list = []
+    for in_arc_img, out_arc_img in zip(in_arc_imgs, out_arc_imgs):
+        inout_list.append(ArcInout(in_arc_img, out_arc_img))
+    
+    train_inout_list = inout_list[:train_task_len]
+    test_inout_list = inout_list[train_task_len:]
+
+    fake_candidate = in_arc_imgs
+    #!dataclassesでOptionalが使えないのでとりあえずfakeとしてin_arc_imgsを使う
+    rslt = ArcTask(train_inout_list, test_inout_list, fake_candidate)
+    
+
     return in_arc_imgs, out_arc_imgs
+
 
 def save_logical_task(save_dir: Path):
     in_imgs, out_imgs = logical_tasks(10)
@@ -705,15 +701,16 @@ def save_logical_tasks(save_dir: Path, task_num: int):
     print(f"save logical op tasks to {save_dir}...")
 
     if save_dir.exists():
-    #all files in the directory will be deleted
+        # all files in the directory will be deleted
         for file in save_dir.glob("*"):
             file.unlink()
 
     if not save_dir.exists():
         save_dir.mkdir()
-            
+
     for _ in tqdm(range(task_num)):
         save_logical_task(save_dir)
+
 
 def load_logical_tasks(tasks_dir: Path):
     files = tasks_dir.glob("*.json")
@@ -729,4 +726,3 @@ if __name__ == "__main__":
 
     save_logical_tasks(Path("data/logical_op/train"), 1000)
     save_logical_tasks(Path("data/logical_op/evaluation"), 1000)
-
