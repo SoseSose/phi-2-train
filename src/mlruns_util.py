@@ -15,7 +15,7 @@ Phi2_OUTPUT_FILE = "phi-2 select.json"
 class MlflowRapper:
     def __init__(self) -> None:
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-        conn = sqlite3.connect(DB_PATH)
+        sqlite3.connect(DB_PATH)
 
         tracking_uri = f"sqlite:///{DB_PATH}"
         mlflow.set_tracking_uri(tracking_uri)
