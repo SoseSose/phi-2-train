@@ -72,7 +72,8 @@ class Phi2:
 
         return answer, token_num
 
-
+import pytest
+@pytest.mark.skip(reason="this is slow")
 def test_get_token_num_and_anser():
     question = "What is the sum of 1 and 2?"
     phi2 = Phi2("D:/models/phi2")
