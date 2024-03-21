@@ -63,49 +63,48 @@ class ArcImage:
         return np.array(self.img)
 
 
-
-
-
 class TestArcImage:
+    def get_test_image(self) -> List[List[int]]:
+        return [[i for i in range(ArcConst().MIN_COLOR_NUM,ArcConst().MAX_COLOR_NUM+1)] for _ in range(6)]
     def test_init_normal(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         arc_image = ArcImage(test_image)
         assert arc_image.img == test_image
 
     def test_init_lager_value(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         test_image[0][0] = 12
         with pytest.raises(ValueError):
             ArcImage(test_image)
 
     def test_init_smaller_value(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         test_image[0][0] = -1
         with pytest.raises(ValueError):
             ArcImage(test_image)
 
     def test_init_not_int(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         test_image[0][0] = "0"  # type: ignore
         with pytest.raises(ValueError):
             ArcImage(test_image)
 
     def test_init_not_same_length(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         test_image[0].append(1)
         with pytest.raises(ValueError):
             ArcImage(test_image)
 
     def test_to_string(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         arc_image = ArcImage(test_image)
         assert (
             arc_image.to_str(vr_delim="", hr_delim="\n")
-            == "012345678910\n012345678910\n012345678910\n012345678910\n012345678910\n012345678910"
+            == "0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n0123456789"
         )
 
     def test_to_2d_list(self):
-        test_image = [[i for i in range(11)] for _ in range(6)]
+        test_image = self.get_test_image()
         arc_image = ArcImage(test_image)
         assert arc_image.to_2d_list() == test_image
 
@@ -130,6 +129,7 @@ class ArcTask:
     train: list[ArcInout]
     test: ArcInout
     candidate: list[ArcImage]
+    name: str = "no name"
 
     @property
     def train_inputs(self) -> list[ArcImage]:
@@ -179,6 +179,7 @@ class ArcTask:
 
     def __str__(self) -> str:
         return self.to_str("train", "test")
+
 
 class TestArcTask:
     def test_train_inputs(self):
@@ -267,8 +268,6 @@ class TestArcTask:
         need_str = textwrap.dedent(need_str).strip()
         assert rslt == need_str
 
-FAKE_NUM = 8
-
 
 class ArcTaskSet:
     """
@@ -279,7 +278,7 @@ class ArcTaskSet:
     - path_to_arc_task(data_path): Converts a path to a directory containing JSON task files to a list of ArcTask objects.
     """
 
-    def _task_json_to_arc_task(self, task):
+    def _task_json_to_arc_task(self, task, name: str):
         """
         Converts a task in JSON format to an ArcTask object.
 
@@ -303,11 +302,11 @@ class ArcTaskSet:
         true_test_inout = ArcInout(ArcImage(true_test_in), ArcImage(true_test_out))
 
         candidate = []
-        for two_cand in test[1 : FAKE_NUM + 1]:
+        for two_cand in test[1 : ArcConst().FAKE_NUM + 1]:
             candidate.append(ArcImage(two_cand["input"]))
             candidate.append(ArcImage(two_cand["output"]))
 
-        return ArcTask(train, true_test_inout, candidate)
+        return ArcTask(train, true_test_inout, candidate, name)
 
     def path_to_arc_task(self, data_path: str) -> List[ArcTask]:
         """
@@ -323,7 +322,7 @@ class ArcTaskSet:
         for task_file in Path(data_path).glob("*.json"):
             with task_file.open() as f:
                 task = json.load(f)
-                tasks.append(self._task_json_to_arc_task(task))
+                tasks.append(self._task_json_to_arc_task(task, task["name"]))
 
         return tasks
 
@@ -344,8 +343,6 @@ def str_to_arc_image(string: str) -> ArcImage:
     two_d_list = ArcImage(two_d_list)
     return two_d_list
 
-
-#%%
 
 class TestArcTaskSet:
     def test_op_path_to_arc_task(self):
