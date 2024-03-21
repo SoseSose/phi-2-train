@@ -5,9 +5,18 @@ from utils import fix_random_seed
 from phi2_model import Phi2
 from mlruns_util import MlflowRapper
 
-fix_random_seed()
+if __name__ == "__main__":
+    fix_random_seed()
+    train_or_eval = "training"
+    # train_or_eval = "evaluation"
+    ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
+    phi2 = Phi2("D:/models/phi2")
+    mlflow_rapper = MlflowRapper()
+    mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)
 
-#%%
+
+import pytest
+@pytest.mark.skip(reason="this test takes too long")
 def test_evaluate_one():
     train_or_eval = "training"
     ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
@@ -23,20 +32,7 @@ def test_evaluate_one():
     print("answer:")
     print(answer)
 
-test_evaluate_one()
-#%%
-
-if __name__ == "__main__":
-    train_or_eval = "training"
-    # train_or_eval = "evaluation"
-    ds = ArcTaskSet().path_to_arc_task("data/"+train_or_eval)
-    phi2 = Phi2("D:/models/phi2")
-    mlflow_rapper = MlflowRapper()
-    mlflow_rapper.evaluate_n_log(ds, phi2, train_or_eval)
-
-#%%
-
-#%%
+@pytest.mark.skip(reason="this test takes too long")
 def test_plot_task_for_task_set():
     import numpy as np
     from pathlib import Path
