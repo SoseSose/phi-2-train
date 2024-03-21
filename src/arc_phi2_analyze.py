@@ -6,7 +6,6 @@ import json
 import pandas as pd
 import os
 from arc_visualize import plot_task
-import numpy as np
 from arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
 
 
