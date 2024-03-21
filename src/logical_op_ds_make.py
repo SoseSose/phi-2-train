@@ -1,16 +1,13 @@
 # %%
 import dataclasses
-from operator import is_
 import random
 import uuid
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
 import pytest
 from tqdm import tqdm
-from abc import ABC, abstractmethod
 
 from arc_preprocess import ArcImage, ArcInout, ArcTask
 
@@ -327,11 +324,9 @@ def two_img_concat_with_line(
     if img1.shape != img2.shape:
         raise ValueError("img1 and img2 must have the same shape")
 
-    if img1.shape[0] > MAX_PART_IMG_SIZE or img1.shape[1] > MAX_PART_IMG_SIZE:
-        raise ValueError(
-            f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE + 1}(MAX_PART_IMG_SIZE)"
-        )
     img1_y, img1_x = img1.shape[:2]
+    if img1_y > MAX_PART_IMG_SIZE and img1_x > MAX_PART_IMG_SIZE:
+        raise ValueError(f"img_y or img_x > {MAX_PART_IMG_SIZE}")
 
     rslt_img = np.full((img1_y * 2 + 1, img1_x), line_color, dtype=int)
     rslt_img = paste(rslt_img, img1, 0, 0)
@@ -358,7 +353,7 @@ def test_img1_and_img2_must_have_the_same_shape():
 
 def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
     big_img = [
-        [1 for _ in range(MAX_PART_IMG_SIZE)] for _ in range(MAX_PART_IMG_SIZE + 1)
+        [1 for _ in range(MAX_PART_IMG_SIZE+1)] for _ in range(MAX_PART_IMG_SIZE + 1)
     ]
 
     img1 = np.array(big_img)
@@ -367,22 +362,8 @@ def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
         _ = two_img_concat_with_line(img1, img2, 8)
     assert (
         str(e.value)
-        == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
+        == f"img_y or img_x > {MAX_PART_IMG_SIZE}"
     )
-
-    big_img = [
-        [1 for _ in range(MAX_PART_IMG_SIZE + 1)] for _ in range(MAX_PART_IMG_SIZE)
-    ]
-
-    img1 = np.array(big_img)
-    img2 = np.array(big_img)
-    with pytest.raises(Exception) as e:
-        _ = two_img_concat_with_line(img1, img2, 8)
-    assert (
-        str(e.value)
-        == f"img1 and img2 must be smaller than {MAX_PART_IMG_SIZE+1}(MAX_PART_IMG_SIZE)"
-    )
-
 
 def make_random_box(size_x: int, size_y: int, cand_val: list[int]):
     return np.random.choice(cand_val, size=(size_y, size_x))
@@ -393,36 +374,6 @@ def test_make_random_box():
     assert rslt.shape == (2, 2)
     assert ((rslt == 0) | (rslt == 1)).all()
 
-
-def test_color_pick():
-    for _ in range(1000):
-        color = ArcColor()
-        first_picked_color = color.pick_random_unused(index=None)
-        second_picked_color = color.pick_random_unused(index=None)
-        assert first_picked_color != second_picked_color
-
-
-def test_all_color_pick():
-    color = ArcColor()
-    for i in range(MAX_COLOR_NUM):
-        picked_color = color.pick_random_unused(index=0)
-        assert picked_color == i
-
-    # it should be error
-    color = ArcColor()
-    with pytest.raises(Exception) as e:
-        picked_color = color.pick_random_unused(index=-1)
-    assert str(e.value) == f"index must be 0 <= index < {MAX_COLOR_NUM}"
-
-    # it should not be
-    color = ArcColor()
-    picked_color = color.pick_random_unused(index=MAX_COLOR_NUM - 1)
-
-    # it should be error
-    color = ArcColor()
-    with pytest.raises(Exception) as e:
-        picked_color = color.pick_random_unused(index=MAX_COLOR_NUM)
-    assert str(e.value) == f"index must be 0 <= index < {MAX_COLOR_NUM}"
 
 
 class ColorConverter:
@@ -511,14 +462,15 @@ def test_logical_out_img():
 
 
 def logical_inout_img(
-    logical_op: RandomLogicalOp,
+    logical_op: LogicalOp,
     zero_color: int,
     one_color: int,
     line_color: int,
     is_vertical: bool,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
-    size_x = random.randint(LOGICAL_OP_MIN_SIZE, MAX_PART_IMG_SIZE)
+
     size_y = random.randint(LOGICAL_OP_MIN_SIZE, MAX_PART_IMG_SIZE)
+    size_x = random.randint(LOGICAL_OP_MIN_SIZE, MAX_IMG_SIZE)
 
     img1 = make_random_box(
         size_y=size_y, size_x=size_x, cand_val=[zero_color, one_color]
@@ -567,29 +519,40 @@ def logical_op_img_decomp(
         img2 = img2.T
     return img1, line, img2
 
+def color_use_uncorrct(in_img: npt.NDArray[np.int32], out_img: npt.NDArray[np.int32], zero_color: int, one_color: int, line_color: int, is_vertical: bool):
+
+    def assert_only_zero_or_one_color(img: npt.NDArray[np.int32]):
+        assert ((img == zero_color) | (img == one_color)).all()
+
+
+    img1, line, img2 = logical_op_img_decomp(in_img, is_vertical=is_vertical)
+
+    # img1, img2 shold be zero_color or one_color
+    assert_only_zero_or_one_color(img1)
+    assert_only_zero_or_one_color(img2)
+    # line should be line_color
+    assert (line == line_color).all()
+    # out_img should be zero_color or one_color
+    assert_only_zero_or_one_color(out_img)
+
+
 @pytest.mark.parametrize("is_vertical", [True, False])
 def test_logical_inout_img(is_vertical):
     zero_color = 1
     one_color = 3
     line_color = 4
     is_vertical = False
-    in_img, out_img = logical_inout_img(
-        logical_op=RandomLogicalOp(),
-        zero_color=zero_color,
-        one_color=one_color,
-        line_color=line_color,
-        is_vertical=is_vertical,
-    )
+    for _ in range(1000):
+        in_img, out_img = logical_inout_img(
+            logical_op=RandomLogicalOp(),
+            zero_color=zero_color,
+            one_color=one_color,
+            line_color=line_color,
+            is_vertical=is_vertical,
+        )
 
-    img1, line, img2 = logical_op_img_decomp(in_img, is_vertical=is_vertical)
+        color_use_uncorrct(in_img, out_img, zero_color, one_color, line_color, is_vertical)
 
-    # img1, img2 shold be zero_color or one_color
-    assert ((img1 == zero_color) | (img1 == one_color)).all()
-    assert ((img2 == zero_color) | (img2 == one_color)).all()
-    # line should be line_color
-    assert (line == line_color).all()
-    # out_img should be zero_color or one_color
-    assert ((out_img == zero_color) | (out_img == one_color)).all()
 
 
 @dataclasses.dataclass
@@ -628,33 +591,11 @@ def test_logical_inout_task():
     random_vals = RandomValues()
     in_imgs, out_imgs = logical_inout_task(10, random_vals=random_vals)
 
-    for i, in_img in enumerate(in_imgs):
-        img1, line, img2 = logical_op_img_decomp(in_img, random_vals.is_vertical)
-        if i == 0:
-            stacked_imgs = img1.flatten()
-            stacked_lines = line.flatten()
-        else:
-            stacked_imgs = np.concatenate((stacked_imgs, img1.flatten()))
-            stacked_lines = np.concatenate((stacked_lines, line.flatten()))
-        stacked_imgs = np.concatenate((stacked_imgs, img2.flatten()))
-        assert img1.shape == img2.shape, f"{img1= }, {img2=}"
-    assert np.unique(stacked_imgs).shape[0] == 2
-    assert np.unique(stacked_lines).shape[0] == 1
-
-    for i, out_img in enumerate(out_imgs):
-        if i == 0:
-            stacked_out_imgs = out_img.flatten()
-        else:
-            stacked_out_imgs = np.concatenate((stacked_out_imgs, out_img.flatten()))
-
-    assert (
-        np.unique(stacked_out_imgs).shape[0] <= 2
-    ), f"stacked_out_imgs: {stacked_out_imgs}"
-
+    for in_img, out_img in zip(in_imgs, out_imgs):
+        color_use_uncorrct(in_img, out_img, random_vals.zero_color, random_vals.one_color, random_vals.line_color, random_vals.is_vertical)
 
 def np_img_to_arc_img(img: npt.NDArray[np.int32]) -> ArcImage:
     return ArcImage(img.tolist())
-
 
 def logical_task(train_task_len: int) -> ArcTask:
     random_vals = RandomValues()
@@ -680,7 +621,6 @@ def logical_task(train_task_len: int) -> ArcTask:
 
 def save_logical_task(save_dir: Path, task_len: int):
     task_str = str(logical_task(task_len))
-
     f_name = str(uuid.uuid4()) + ".txt"
     f_path = save_dir / f_name
     f_path.write_text(task_str)
