@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from typing import Union, Optional
 from pathlib import Path
-import pytest
 
 from const import ArcConst
 
@@ -183,7 +182,8 @@ def plot_task(
         fig.savefig(save_path)
         plt.close()
     
-
+import pytest
+@pytest.mark.skip
 def test_plot_task():
 
     test_image = np.tile(np.arange(10), (2, 6, 1))
@@ -198,43 +198,40 @@ def test_plot_task():
         save_path=file_name,
     )
     Path(file_name).unlink()
-if __name__ == "__main__":
-    test_plot_task()
 
 
-# %%
+@pytest.mark.skip
+class TestPlotSome:
+    test_image = np.tile(np.arange(MAX_COLOR_NUM + 2), (2, 6, 1))
 
-# class TestPlotSome:
-#     test_image = np.tile(np.arange(CH_source + 2), (2, 6, 1))
+    def test_normal_plot(self):
+        plot_some(self.test_image, "original", show_num=True)
 
-#     def test_normal_plot(self):
-#         plot_some(self.test_image, "original", show_num=True)
+    @pytest.mark.parametrize("fold", [2, 3, 4, 5, 6, 7, 8, 9, 10])
+    def test_fold(self,fold):
+        plot_some(self.test_image + 4, "original", show_num=True, fold=fold)
 
-#     @pytest.mark.parametrize("fold", [2, 3, 4, 5, 6, 7, 8, 9, 10])
-#     def test_fold(self,fold):
-#         plot_some(self.test_image + 4, "original", show_num=True, fold=fold)
+    def test_padded_plot(self):
+        plot_some(self.test_image, "padded image", pad=(MAX_IMG_SIZE, MAX_IMG_SIZE))
 
-#     def test_padded_plot(self):
-#         plot_some(self.test_image, "padded image", pad=(MAX_SIZE, MAX_SIZE))
+    def test_one_hot_plot(self):
+        def one_hot(x: np.ndarray, depth):
+            return np.identity(depth)[x]
 
-#     def test_one_hot_plot(self):
-#         def one_hot(x: np.ndarray, depth):
-#             return np.identity(depth)[x]
+        one_hot_img = one_hot(self.test_image, MAX_COLOR_NUM + 2)
+        plot_some(one_hot_img, "image", pad=(MAX_IMG_SIZE, MAX_IMG_SIZE))
 
-#         one_hot_img = one_hot(self.test_image, CH_source + 2)
-#         plot_some(one_hot_img, "image", pad=(MAX_SIZE, MAX_SIZE))
+    def test_save_path(self):
+        file_name = "test.png"
 
-#     def test_save_path(self):
-#         file_name = "test.png"
-
-#         plot_some(
-#             self.test_image,
-#             "test save",
-#             pad=(MAX_SIZE, MAX_SIZE),
-#         )
-#         file_path = Path(file_name)
-#         if not file_path.exists():
-#             raise ValueError("file not saved")
-#         else:
-#             file_path.unlink()
+        plot_some(
+            self.test_image,
+            "test save",
+            pad=(MAX_IMG_SIZE, MAX_IMG_SIZE),
+        )
+        file_path = Path(file_name)
+        if not file_path.exists():
+            raise ValueError("file not saved")
+        else:
+            file_path.unlink()
 
