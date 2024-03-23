@@ -1,5 +1,6 @@
 # %%
 import dataclasses
+import pickle
 import random
 import uuid
 from pathlib import Path
@@ -353,17 +354,15 @@ def test_img1_and_img2_must_have_the_same_shape():
 
 def test_img1_and_img2_must_be_smaller_than_MAX_PART_IMG_SIZE():
     big_img = [
-        [1 for _ in range(MAX_PART_IMG_SIZE+1)] for _ in range(MAX_PART_IMG_SIZE + 1)
+        [1 for _ in range(MAX_PART_IMG_SIZE + 1)] for _ in range(MAX_PART_IMG_SIZE + 1)
     ]
 
     img1 = np.array(big_img)
     img2 = np.array(big_img)
     with pytest.raises(Exception) as e:
         _ = two_img_concat_with_line(img1, img2, 8)
-    assert (
-        str(e.value)
-        == f"img_y or img_x > {MAX_PART_IMG_SIZE}"
-    )
+    assert str(e.value) == f"img_y or img_x > {MAX_PART_IMG_SIZE}"
+
 
 def make_random_box(size_x: int, size_y: int, cand_val: list[int]):
     return np.random.choice(cand_val, size=(size_y, size_x))
@@ -373,7 +372,6 @@ def test_make_random_box():
     rslt = make_random_box(2, 2, [0, 1])
     assert rslt.shape == (2, 2)
     assert ((rslt == 0) | (rslt == 1)).all()
-
 
 
 class ColorConverter:
@@ -468,7 +466,6 @@ def logical_inout_img(
     line_color: int,
     is_vertical: bool,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32]]:
-
     size_y = random.randint(LOGICAL_OP_MIN_SIZE, MAX_PART_IMG_SIZE)
     size_x = random.randint(LOGICAL_OP_MIN_SIZE, MAX_IMG_SIZE)
 
@@ -519,11 +516,17 @@ def logical_op_img_decomp(
         img2 = img2.T
     return img1, line, img2
 
-def color_use_uncorrct(in_img: npt.NDArray[np.int32], out_img: npt.NDArray[np.int32], zero_color: int, one_color: int, line_color: int, is_vertical: bool):
 
+def color_use_uncorrct(
+    in_img: npt.NDArray[np.int32],
+    out_img: npt.NDArray[np.int32],
+    zero_color: int,
+    one_color: int,
+    line_color: int,
+    is_vertical: bool,
+):
     def assert_only_zero_or_one_color(img: npt.NDArray[np.int32]):
         assert ((img == zero_color) | (img == one_color)).all()
-
 
     img1, line, img2 = logical_op_img_decomp(in_img, is_vertical=is_vertical)
 
@@ -551,8 +554,9 @@ def test_logical_inout_img(is_vertical):
             is_vertical=is_vertical,
         )
 
-        color_use_uncorrct(in_img, out_img, zero_color, one_color, line_color, is_vertical)
-
+        color_use_uncorrct(
+            in_img, out_img, zero_color, one_color, line_color, is_vertical
+        )
 
 
 @dataclasses.dataclass
@@ -592,10 +596,19 @@ def test_logical_inout_task():
     in_imgs, out_imgs = logical_inout_task(10, random_vals=random_vals)
 
     for in_img, out_img in zip(in_imgs, out_imgs):
-        color_use_uncorrct(in_img, out_img, random_vals.zero_color, random_vals.one_color, random_vals.line_color, random_vals.is_vertical)
+        color_use_uncorrct(
+            in_img,
+            out_img,
+            random_vals.zero_color,
+            random_vals.one_color,
+            random_vals.line_color,
+            random_vals.is_vertical,
+        )
+
 
 def np_img_to_arc_img(img: npt.NDArray[np.int32]) -> ArcImage:
     return ArcImage(img.tolist())
+
 
 def logical_task(train_task_len: int) -> ArcTask:
     random_vals = RandomValues()
@@ -619,22 +632,26 @@ def logical_task(train_task_len: int) -> ArcTask:
     return rslt
 
 
-def save_logical_task(save_dir: Path, task_len: int):
-    task_str = str(logical_task(task_len))
-    f_name = str(uuid.uuid4()) + ".txt"
-    f_path = save_dir / f_name
-    f_path.write_text(task_str)
-    return task_str, f_path
+FILE_EXTENTION = ".pkl"
+def _save_logical_task(save_path: Path, task_len: int):
+    task = logical_task(task_len)
+    with save_path.open("wb") as f:
+        pickle.dump(task, f)
+    pickle.dump(task, save_path.open("wb"))
+    return task
 
 
-def load_logical_task(f_path: Path) -> dict:
-    task_str = f_path.read_text()
-    return task_str
+def _load_logical_task(f_path: Path) -> ArcTask:
+    task = pickle.load(f_path.open("rb"))
+    if not isinstance(task, ArcTask):
+        raise ValueError(f"{f_path} is not ArcTask")
+    return task
 
 
 def test_save_and_load_logical_task(tmp_path: Path):
-    saved_task, f_path = save_logical_task(tmp_path, task_len=10)
-    loaded_task = load_logical_task(f_path)
+    f_path = tmp_path / f"test{FILE_EXTENTION}"
+    saved_task= _save_logical_task(f_path, task_len=10)
+    loaded_task = _load_logical_task(f_path)
     assert saved_task == loaded_task
 
 
@@ -649,34 +666,41 @@ def save_logical_tasks(save_dir: Path, task_num: int, task_len: int):
     else:
         save_dir.mkdir()
 
+    # file_name_key_tasks = {}
     tasks = []
-    f_paths = []
-    for _ in tqdm(range(task_num)):
-        task, f_path = save_logical_task(save_dir, task_len=task_len)
+    for i in tqdm(range(task_num)):
+        f_path = save_dir / f"{i:08}{FILE_EXTENTION}"
+        task = _save_logical_task(f_path, task_len=task_len)
         tasks.append(task)
-        f_paths.append(f_path)
 
-    return tasks, f_paths
-
-
-def load_logical_tasks(tasks_dir: Path):
-    files = tasks_dir.glob("*.txt")
-    tasks = []
-    for file in files:
-        task = load_logical_task(file)
-        tasks.append(task)
     return tasks
 
 
-def saved_path(tmp_path: Path):
-    tasks_dir = tmp_path / "tasks"
-    tasks_dir.mkdir()
-    saved_tasks, saved_f_paths = save_logical_tasks(tasks_dir, task_num=10, task_len=10)
-    for task, f_path in zip(saved_tasks, saved_f_paths):
-        loaded_task = load_logical_task(f_path)
-        assert task == loaded_task
+def load_logical_tasks(tasks_dir: Path) -> list[dict]:
+    files = sorted(tasks_dir.glob(f"*{FILE_EXTENTION}"))
+    print(files)
+    tasks = []
+    for file in files:
+        task = _load_logical_task(file)
+        tasks.append(
+            {
+                "input": str(task),
+                "output": str(task.test_output),
+            }
+        )
+
+    return tasks
 
 
+def test_save_logical_tasks(tmp_path: Path):
+    saved_tasks = save_logical_tasks(tmp_path, task_num=10, task_len=10)
+    loaded_tasks = load_logical_tasks(tmp_path)
+
+    for saved_task, loaded_task in zip(saved_tasks, loaded_tasks):
+        assert loaded_task["input"] == str(saved_task)
+        assert loaded_task["output"] == str(saved_task.test_output)
+
+#%%
 if __name__ == "__main__":
     save_logical_tasks(Path("data/logical_op/train"), 1000, 10)
     save_logical_tasks(Path("data/logical_op/evaluation"), 1000, 10)
