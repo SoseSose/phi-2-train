@@ -8,29 +8,27 @@ from arc_preprocess import ArcTaskSet, ArcTask
 
 DB_PATH = "result/mlruns.db"
 ARTIFACT_LOCATION = "result/artifacts"
-EXPERIMENT_NAME = "test_mlflow"
 Phi2_OUTPUT_FILE = "phi-2 select.json"
 
-
 class MlflowRapper:
-    def __init__(self) -> None:
+    def __init__(self, experiment_name) -> None:
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         sqlite3.connect(DB_PATH)
 
         tracking_uri = f"sqlite:///{DB_PATH}"
         mlflow.set_tracking_uri(tracking_uri)
 
-        experiment = mlflow.get_experiment_by_name(EXPERIMENT_NAME)
+        experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
             experiment_id = mlflow.create_experiment(
-                name=EXPERIMENT_NAME, artifact_location=ARTIFACT_LOCATION
+                name=experiment_name, artifact_location=ARTIFACT_LOCATION
             )
         else:
             experiment_id = experiment.experiment_id
         self.experiment_id = experiment_id
 
     def evaluate_n_log(self, ds:list[ArcTask], model, train_or_eval):
-        columns = ["input idetifer", "output", "token num"]
+        columns = ["input idetifer","question", "answer", "token num"]
         data = {column: [] for column in columns}
 
         df = pd.DataFrame(data)
@@ -42,7 +40,7 @@ class MlflowRapper:
                 input_identifier = data.name
                 question = data.to_str("example", "test") 
                 output, token_num = model.get_token_num_and_answer(question)
-                df.loc[i] = [input_identifier, output, token_num]
+                df.loc[i] = [input_identifier, question, output, token_num]
 
             mlflow.log_table(df, Phi2_OUTPUT_FILE)
             run_id = run.info.run_id
