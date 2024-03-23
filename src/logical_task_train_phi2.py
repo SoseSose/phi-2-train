@@ -1,5 +1,6 @@
 # %%
-from datasets import load_dataset
+from logical_op_ds_make import load_logical_tasks
+from arc_preprocess import ArcTask, ArcTaskSet
 from phi2_model import Phi2
 from torch.utils.data import DataLoader
 from torch.optim import SGD
@@ -7,87 +8,98 @@ from transformers import get_scheduler
 import torch
 from tqdm import tqdm
 import torch.nn as nn
+from pathlib import Path
 
-def main():
-    ##!くそ長い時間がかかるのでlogical_opに置き換える。
-    dataset = load_dataset("yelp_review_full")
-    print("load dataset")
-    device = torch.device("cuda:0") 
-    phi2 = Phi2("D:/models/phi2", device=device)
-    max_length = int(phi2.MAX_TOKENS * 3 / 5)
 
-    def tokenize_function(examples):
+fix_random_seed()
 
-        token_ids = phi2.tokenizer.encode(
-            examples["text"],
+##!くそ長い時間がかかるのでlogical_opに置き換える。
+class Model:
+    def __init__(self) -> None:
+
+        device = torch.device("cuda:0") 
+        self.phi2 = Phi2("D:/models/phi2", device=device)
+        self.max_length = int(self.phi2.MAX_TOKENS * 3 / 5)
+    
+
+    def tokenize_function(self,examples):
+
+        token_ids = self.phi2.tokenizer.encode(
+            examples,
             add_special_tokens=True,
-            max_length=max_length,
+            max_length=self.max_length,
             padding="max_length",
             truncation="only_first",
             return_tensors="pt",
         )
         token_len = len(token_ids[0])
-        split_len = int(token_len /2)
-        question, ans = token_ids[0][:split_len], token_ids[0][split_len:]
-        return question, ans
-        # return token_ids
+        return token_ids, token_len
+
+    def train_ds(self, ds):
+        train_ds = [self.tokenize_function(ds["train"][i]) for i in range(1000)]
+        train_dataloader = DataLoader(train_ds, shuffle=True, batch_size=1, drop_last=True)  # type: ignore
+
+        optimizer = SGD(self.phi2.model.parameters(), lr=5e-5)
 
 
-    def test_tokenize_function():
+        num_epochs = 3
+        num_training_steps = num_epochs * len(train_dataloader)
+        lr_scheduler = get_scheduler(
+            name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
+        )
 
-        for i in range(10):
-            example = dataset["train"][i]
-            token_ids = tokenize_function(example)
+        loss_fn = nn.CrossEntropyLoss(reduction="sum")
+        # progress_bar = tqdm(range(num_training_steps))
+        logits = 51200
 
-    train_ds = [tokenize_function(dataset["train"][i]) for i in range(1000)]
-    test_ds = [tokenize_function(dataset["test"][i]) for i in range(1000)]
-    train_dataloader = DataLoader(train_ds, shuffle=True, batch_size=1, drop_last=True)  # type: ignore
-    eval_dataloader = DataLoader(test_ds, batch_size=1, drop_last=True)  # type: ignore
+        self.phi2.model.train()
+        for epoch in range(num_epochs):
+            for batch in train_dataloader:
+                question, ans = batch
+                outputs = self.phi2.model(question.to(self.device))
+                outputs_reshape = outputs.logits.view(-1, outputs.logits.shape[-1])
+                ans = ans.reshape((ans.shape[-1],)).to(self.device)
+                loss = loss_fn(outputs_reshape, ans)
 
-    optimizer = SGD(phi2.model.parameters(), lr=5e-5)
+                loss.backward()
 
-    num_epochs = 3
-    num_training_steps = num_epochs * len(train_dataloader)
-    lr_scheduler = get_scheduler(
-        name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
-    )
+                optimizer.step()
+                lr_scheduler.step()
+                optimizer.zero_grad()
 
-    loss_fn = nn.CrossEntropyLoss(reduction="sum")
-    # progress_bar = tqdm(range(num_training_steps))
-    logits = 51200
 
-    phi2.model.train()
-    for epoch in range(num_epochs):
-        for batch in train_dataloader:
-            question, ans = batch
-            # print(batch)
-            outputs = phi2.model(question.to(device))
-            outputs_reshape = outputs.logits.view(-1, outputs.logits.shape[-1])
-            ans = ans.reshape((ans.shape[-1],)).to(device)
-            print(question.shape, ans.shape, outputs_reshape.shape)
-            loss = loss_fn(outputs_reshape, ans)
-
-            loss.backward()
-
-            optimizer.step()
-            lr_scheduler.step()
-            optimizer.zero_grad()
-            # progress_bar.update(1)
-            break
+    def eval_ds(self, ds):
+        def split_q_n_a(examples:ArcTask):
+            question = examples.to_str("example", "test", show_test_out=False)
+            answer = examples.test_output.to_str("", ",")
+            return question, answer
+        
+        ds = [split_q_n_a(ds[i]) for i in range(1000)]
+        eval_dataloader = DataLoader(ds, batch_size=1, drop_last=True)  
 
         for batch in eval_dataloader:
             question, ans = batch
-            outputs = phi2.model(question.to(device))
+            outputs = self.phi2.model(question.to(self.device))
             outputs_reshape = outputs.logits.view(-1, outputs.logits.shape[-1])
-            ans = ans.reshape((ans.shape[-1],)).to(device)
-            print(question.shape, ans.shape, outputs_reshape.shape)
+            ans = ans.reshape((ans.shape[-1],)).to(self.device)
             loss = loss_fn(outputs_reshape, ans)
-            break
+
+    
+
+
 
 import pytest
 @pytest.mark.skip(reason="this test takes too long")
 def test_main():
-    main()
+    mainclass = Model()
+    eval_ds = ()
+    before_train_acc = Model.eval_ds(eval_ds)
+    train_ds = load_logical_tasks(Path("data/logical_op/train"))
+
+    mainclass.train_ds(LogicalOpDs)
+
+    acc = Model.eval_ds(eval_ds)
+    assert acc > before_train_acc
 
 if __name__ == "__main__":
     test_main()
