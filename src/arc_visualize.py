@@ -8,12 +8,13 @@ from pathlib import Path
 
 from const import ArcConst
 
-MIN_COLOR_NUM   = ArcConst.MIN_COLOR_NUM
+MIN_COLOR_NUM = ArcConst.MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst.MAX_COLOR_NUM
 MAX_IMG_SIZE = ArcConst.MAX_IMG_SIZE
 
 #!　将来的にarcのメタデータを入手できるように
 #! figやgsの処理が甘い。もっとシンプルに書けるはず。
+
 
 def plot_one(ax, input, show_num=False):
     """画像を一つ表示する関数
@@ -56,23 +57,25 @@ def plot_one(ax, input, show_num=False):
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
+
 def input_format(
     input: Union[np.ndarray, list],
     pad=None,
-    ):
-    """ 
+):
+    """
     Args:
         input (Union[np.ndarray, list]): [N, H, W, C]または[N, H, W]であるarc_image
         pad (Union[None, list], optional): None or [pad height, w_height]. Defaults to None. もし値がある時はpad_height, pad_widthの値までpaddingされる。今は使っていない。
     """
-
 
     if type(input) != np.ndarray:
         input = [np.array(one_input) for one_input in input]
 
     input_dim = len(input[0].shape) + 1
     if not 3 <= input_dim <= 4:
-        raise ValueError("input must be [N, H, W, C] or [N, H, W],but got  dim:{}".format(input_dim))
+        raise ValueError(
+            "input must be [N, H, W, C] or [N, H, W],but got  dim:{}".format(input_dim)
+        )
     elif input_dim == 4:
         input = np.argmax(input, axis=-1)
 
@@ -91,7 +94,6 @@ def input_format(
     return rslt
 
 
-
 def plot_some(
     input: Union[np.ndarray, list],
     title: Union[str, list[str]],
@@ -100,7 +102,6 @@ def plot_some(
     index,
     vis_len,
     show_num=False,
-    
 ):
     """
     いくつかまとめて画像を表示する関数
@@ -115,21 +116,18 @@ def plot_some(
     input_len = len(input)
     w = vis_len // (input_len + 1)
     for i, val in enumerate(input):
-
         if isinstance(title, str):
             retitle = title + ":" + str(i)
         elif isinstance(title, list):
-            retitle = title[i] 
+            retitle = title[i]
         else:
             raise ValueError("title must be str or list")
 
-        ax = fig.add_subplot(gs[index, i*w:(i+1)*w])
-        ax.set_title(retitle, fontdict = {"fontsize": 50})
+        ax = fig.add_subplot(gs[index, i * w : (i + 1) * w])
+        ax.set_title(retitle, fontdict={"fontsize": 50})
         plot_one(ax, val, show_num)
 
     return fig
-
-    
 
 
 def plot_task(
@@ -158,12 +156,11 @@ def plot_task(
         height += 1
 
     vis_len = 100
-    gs = fig.add_gridspec(height ,vis_len)
+    gs = fig.add_gridspec(height, vis_len)
 
-    plot_some(train_inputs, "train in", fig, gs,0, vis_len)
+    plot_some(train_inputs, "train in", fig, gs, 0, vis_len)
     plot_some(train_outputs, "train out", fig, gs, 1, vis_len)
 
-    
     plot_some(test_inout, ["test in", "test out"], fig, gs, 2, vis_len)
 
     gs_index = 2
@@ -181,11 +178,13 @@ def plot_task(
     elif isinstance(save_path, str):
         fig.savefig(save_path)
         plt.close()
-    
+
+
 import pytest
+
+
 @pytest.mark.skip
 def test_plot_task():
-
     test_image = np.tile(np.arange(10), (2, 6, 1))
     file_name = "test.png"
 
@@ -208,7 +207,7 @@ class TestPlotSome:
         plot_some(self.test_image, "original", show_num=True)
 
     @pytest.mark.parametrize("fold", [2, 3, 4, 5, 6, 7, 8, 9, 10])
-    def test_fold(self,fold):
+    def test_fold(self, fold):
         plot_some(self.test_image + 4, "original", show_num=True, fold=fold)
 
     def test_padded_plot(self):
@@ -234,4 +233,3 @@ class TestPlotSome:
             raise ValueError("file not saved")
         else:
             file_path.unlink()
-
