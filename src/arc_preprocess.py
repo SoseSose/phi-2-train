@@ -15,7 +15,6 @@ MIN_COLOR_NUM = ArcConst().MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst().MAX_COLOR_NUM
 MAX_SIZE = ArcConst().MAX_IMG_SIZE
 
-
 class ArcImage:
     def __init__(
         self, original_2d_list: Union[List[List[int]], npt.NDArray[np.int32]]
@@ -61,6 +60,12 @@ class ArcImage:
 
     def __array__(self):
         return np.array(self.img)
+
+    def __eq__(self, other: "ArcImage") -> bool:
+        if self.to_np.shape != other.to_np.shape:
+            return False
+        else:
+            return (self.to_np == other.to_np).all()
 
 
 class TestArcImage:
@@ -112,6 +117,22 @@ class TestArcImage:
         test_image = [[1, 2], [3, 4]]
         arc_image = ArcImage(test_image)
         assert str(arc_image) == "12\n34"
+    
+    def test_ArcImage_equivarent_return_True(self):
+        test_image = [[1, 2], [3, 4]]
+        arc_image = ArcImage(test_image)
+        arc_image2 = ArcImage(test_image)
+        assert arc_image == arc_image2
+    
+    def test_ArcImage_unequivarent_return_False(self):
+        arc_image = ArcImage([[1, 2], [3, 4]])
+        arc_image2 = ArcImage([[1, 2], [3, 5]])
+        assert arc_image != arc_image2
+
+    def test_ArcImage_eq_not_same_shape_return_False(self):
+        arc_image = ArcImage([[1, 2], [3, 4]])
+        arc_image2 = ArcImage([[1, 2, 2], [3, 4,4]])
+        assert arc_image != arc_image2
 
 
 @dataclass
@@ -122,6 +143,30 @@ class ArcInout:
     def __str__(self) -> str:
         # return f"input:\n{self.input}\noutput:\n{self.output}"
         return f"{self.input}\n->\n{self.output}"
+
+    def __eq__(self, other: "ArcInout") -> bool:
+        return self.input == other.input and self.output == other.output
+
+def test_Arc_inout_input_not_same_return_false():
+    test_image = [[1,2], [3,4]]
+    arc_inout = ArcInout(ArcImage(test_image), ArcImage(test_image))
+    arc_inout2 = ArcInout(ArcImage([[1,2],[3, 5]]), ArcImage(test_image))
+
+    assert arc_inout != arc_inout2
+
+def test_Arc_inout_output_not_same_return_false():
+    test_image = [[1,2], [3,4]]
+    arc_inout = ArcInout(ArcImage(test_image), ArcImage(test_image))
+    arc_inout2 = ArcInout(ArcImage([[1,2],[3, 5]]), ArcImage(test_image))
+
+    assert arc_inout != arc_inout2
+
+def test_Arc_inout_input_same_return_true():
+    test_image = [[1,2], [3,4]]
+    arc_inout = ArcInout(ArcImage(test_image), ArcImage(test_image))
+    arc_inout2 = ArcInout(ArcImage(test_image), ArcImage(test_image))
+
+    assert arc_inout == arc_inout2
 
 
 @dataclass
@@ -180,6 +225,13 @@ class ArcTask:
     def __str__(self) -> str:
         return self.to_str("train", "test")
 
+    def __eq__(self, other: "ArcTask") -> bool:
+        
+        return (
+            self.train == other.train
+            and self.test == other.test
+            and self.candidate == other.candidate
+        )
 
 class TestArcTask:
     def test_train_inputs(self):
@@ -268,6 +320,73 @@ class TestArcTask:
         need_str = textwrap.dedent(need_str).strip()
         assert rslt == need_str
 
+
+def test_ArcTask_eq_same_return_True():
+    test_image = [[1, 2], [3, 4]]
+    arc_image = ArcImage(test_image)
+    arc_inout = ArcInout(arc_image, arc_image)
+    arc_task = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout,
+        candidate=[arc_image],
+    )
+    arc_task2 = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout,
+        candidate=[arc_image],
+    )
+    assert arc_task == arc_task2
+
+
+def test_ArcTask_eq_not_same_train_return_False():
+    test_image = [[1, 2], [3, 4]]
+    arc_image = ArcImage(test_image)
+    arc_inout = ArcInout(arc_image, arc_image)
+    arc_inout2 = ArcInout(arc_image, ArcImage([[1, 2], [3, 5]]))
+    arc_task = ArcTask(
+        train=[arc_inout, arc_inout2],
+        test=arc_inout,
+        candidate=[arc_image],
+    )
+    arc_task2 = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout,
+        candidate=[arc_image],
+    )
+    assert arc_task != arc_task2
+
+def test_ArcTask_eq_not_same_test_return_False():
+    test_image = [[1, 2], [3, 4]]
+    arc_image = ArcImage(test_image)
+    arc_inout = ArcInout(arc_image, arc_image)
+    arc_inout2 = ArcInout(arc_image, ArcImage([[1, 2], [3, 5]]))
+    arc_task = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout,
+        candidate=[arc_image],
+    )
+    arc_task2 = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout2,
+        candidate=[ArcImage([[1, 2], [3, 5]])],
+    )
+    assert arc_task != arc_task2
+
+def test_ArcTask_eq_not_same_candidate_return_False():
+    test_image = [[1, 2], [3, 4]]
+    arc_image = ArcImage(test_image)
+    arc_inout = ArcInout(arc_image, arc_image)
+    arc_task = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout,
+        candidate=[arc_image],
+    )
+    arc_task2 = ArcTask(
+        train=[arc_inout, arc_inout],
+        test=arc_inout,
+        candidate=[ArcImage([[1, 2], [3, 5]])],
+    )
+    assert arc_task != arc_task2
 
 class ArcTaskSet:
     """
