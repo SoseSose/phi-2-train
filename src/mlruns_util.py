@@ -1,22 +1,35 @@
-#%%
+# %%
+import json
 import os
 import sqlite3
 import mlflow
 import pandas as pd
 from tqdm import tqdm
 from arc_preprocess import ArcTaskSet, ArcTask
+from phi2_model import BaseModel, MockModel
+from arc_visualize import plot_task
+from mlflow.entities import ViewType
+from arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
+from pathlib import Path
 
 DB_PATH = "result/mlruns.db"
 ARTIFACT_LOCATION = "result/artifacts"
 Phi2_OUTPUT_FILE = "phi-2 select.json"
 
+
 class MlflowRapper:
+    input_identifier = "input idetifer"
+    question = "question"
+    answer = "answer"
+    token_num = "token num"
+
     def __init__(self, experiment_name) -> None:
+        self.experiment_name = experiment_name
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         sqlite3.connect(DB_PATH)
 
-        tracking_uri = f"sqlite:///{DB_PATH}"
-        mlflow.set_tracking_uri(tracking_uri)
+        self.tracking_uri = f"sqlite:///{DB_PATH}"
+        mlflow.set_tracking_uri(self.tracking_uri)
 
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
@@ -25,10 +38,16 @@ class MlflowRapper:
             )
         else:
             experiment_id = experiment.experiment_id
+
         self.experiment_id = experiment_id
 
-    def evaluate_n_log(self, ds:list[ArcTask], model, train_or_eval):
-        columns = ["input idetifer","question", "answer", "token num"]
+    def evaluate_n_log(self, ds: list[ArcTask], model: BaseModel, train_or_eval):
+        columns = [
+            self.input_identifier,
+            self.question,
+            self.answer,
+            self.token_num,
+        ]
         data = {column: [] for column in columns}
 
         df = pd.DataFrame(data)
@@ -38,7 +57,7 @@ class MlflowRapper:
 
             for i, data in tqdm(enumerate(ds)):
                 input_identifier = data.name
-                question = data.to_str("example", "test") 
+                question = data.to_str("example", "test")
                 output, token_num = model.get_token_num_and_answer(question)
                 df.loc[i] = [input_identifier, question, output, token_num]
 
@@ -48,25 +67,93 @@ class MlflowRapper:
 
         return run_id
 
+    def catch_run_location(self, run_id: str) -> str:
+        mlflow.set_tracking_uri(self.tracking_uri)
+        runs = mlflow.search_runs(
+            filter_string="",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            output_format="list",
+            experiment_names=[self.experiment_name],
+        )
 
-class Mock:
-    def __init__(self) -> None:
-        pass
+        for run in runs:
+            if run.info.run_id == run_id:
+                location = mlflow.artifacts.download_artifacts(run.info.artifact_uri)
+                return location
 
-    def build(self):
-        pass
+    def gather_collect(self, df, ds):
+        name_key_ds = {data.name: data for data in ds}
 
-    def get_token_num_and_answer(self, question):
-        return "mock", -1
+        collect_ans = {}
+        for _, row in df.iterrows():
+            name = row[self.input_identifier]
+            data = name_key_ds[name]
+
+            correct_ans = data.test_output
+            if isinstance(correct_ans, ArcImage):
+                correct_ans = correct_ans.to_str("", "\n")
+
+            model_answer = row[self.input_identifier].split("\n\n")[0]
+
+            if correct_ans == model_answer:
+                collect_ans[name] = str_to_arc_image(model_answer)
+        return collect_ans
+
+    def get_collect_name_and_ans(self, run_id: str, ds: list[ArcTask]) -> dict:
+        location = self.catch_run_location(run_id)
+
+        with open(os.path.join(location, Phi2_OUTPUT_FILE)) as f:
+            dic = json.load(f)
+        df = pd.DataFrame(dic["data"], columns=dic["columns"])
+
+        return self.gather_collect(df, ds)
+
+    def calculate_num_collect(self, ds: list[ArcTask], model: BaseModel):
+        analyze_id = self.evaluate_n_log(ds, model, "evaluation")
+        collect_ans = self.get_collect_name_and_ans(analyze_id, ds)
+        num_collect = len(collect_ans)
+        return num_collect
 
 
-def test_evalate_n_log():
-    mock = Mock()
+def visualize(task: ArcTask, model_answer, file_path: str):
+    plot_task(
+        train_inputs=task.train_inputs,
+        train_outputs=task.train_outputs,
+        test_inout=[task.test_input, task.test_output],
+        model_answer=model_answer,
+        save_path=file_path,
+    )
 
+
+import pytest
+
+
+@pytest.mark.skip(reason="this test takes too long")
+def test_evalate_n_log(tmp_path: Path):
+    mock = MockModel()
+
+    os.chdir(tmp_path)
     # train_or_eval = "training"
     train_or_eval = "evaluation"
+    experiment_name = "test"
     ds = ArcTaskSet().path_to_arc_task("data/" + train_or_eval)
-    mlflow_rapper = MlflowRapper()
+    mlflow_rapper = MlflowRapper(experiment_name)
+
     run_id = mlflow_rapper.evaluate_n_log(ds, mock, train_or_eval)
-    mlflow.delete_run(run_id)
+
+    assert run_id is not None
+
+
+def test_calculate_num_collect(tmp_path: Path):
+    ds = ArcTaskSet().path_to_arc_task("data/evaluation")
+    mock = MockModel()
+    os.chdir(tmp_path)
+
+    experiment_name = "test"
+    # print(ds)
+    mlflow_rapper = MlflowRapper(experiment_name)
+
+    num_collect = mlflow_rapper.calculate_num_collect(ds, mock)
+
+    assert num_collect == 0
 

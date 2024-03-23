@@ -16,6 +16,19 @@ if __name__ == "__main__":
 
 
 import pytest
+
+
+@pytest.mark.skip(reason="this test takes too long")
+def calculate_num_collect():
+    ds = ArcTaskSet().path_to_arc_task("data/training")
+    model = Phi2("D:/models/phi2")
+    mlflow_rapper = MlflowRapper()
+
+    acc = mlflow_rapper.calculate_num_collect(ds, model)
+
+    assert acc is not None
+
+
 @pytest.mark.skip(reason="this test takes too long")
 def test_evaluate_one():
     train_or_eval = "training"

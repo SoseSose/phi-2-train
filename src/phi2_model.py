@@ -2,9 +2,29 @@
 from pathlib import Path
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from abc import abstractclassmethod, ABC
 
 
-class Phi2:
+class BaseModel(ABC):
+    def __init__(self) -> None:
+        pass
+
+    @abstractclassmethod
+    def build(self):
+        pass
+
+    @abstractclassmethod
+    def get_token_num_and_answer(self, question:str)->tuple[str, int]:
+        pass
+
+class MockModel(BaseModel):
+    def build(self):
+        pass
+
+    def get_token_num_and_answer(self, question:str)->tuple[str, int]:
+        return "mock", -1
+
+class Phi2(BaseModel):
     MAX_TOKENS = 2048
 
     def __init__(self, save_dir, device="auto"):
@@ -12,7 +32,7 @@ class Phi2:
         self.device = device
         self.__isnt_instanced = True
 
-    def instancing(self):
+    def build(self):
         if self.__isnt_instanced:
             self.__isnt_instanced = False
             if not Path(self.save_dir).exists():
@@ -37,7 +57,7 @@ class Phi2:
                 )
 
     def generate(self, token_ids):
-        self.instancing()
+        self.build()
         output_ids = self.model.generate(
             token_ids.to(self.model.device),
             pad_token_id=self.tokenizer.eos_token_id,
@@ -48,8 +68,8 @@ class Phi2:
         )
         return output_ids
 
-    def get_token_num_and_answer(self, question):
-        self.instancing()
+    def get_token_num_and_answer(self, question:str)->tuple[str, int]:
+        self.build()
         try:
             with torch.no_grad():
                 token_ids = self.tokenizer.encode(
@@ -77,7 +97,9 @@ import pytest
 def test_get_token_num_and_anser():
     question = "What is the sum of 1 and 2?"
     phi2 = Phi2("D:/models/phi2")
+
     answer, token_num = phi2.get_token_num_and_answer(question)
+
     print(answer)
     assert answer is not None
     assert token_num is not None

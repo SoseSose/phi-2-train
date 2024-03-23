@@ -9,7 +9,7 @@ import torch
 from tqdm import tqdm
 import torch.nn as nn
 from pathlib import Path
-
+from utils import fix_random_seed
 
 fix_random_seed()
 
