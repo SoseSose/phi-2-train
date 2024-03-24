@@ -10,9 +10,9 @@ import numpy.typing as npt
 import pytest
 from tqdm import tqdm
 
-from arc_preprocess import ArcImage, ArcInout, ArcTask
+from data_processing.arc_preprocess import ArcImage, ArcInout, ArcTask
 
-from const import ArcConst, ArcColor
+from data_processing.const import ArcConst, ArcColor
 
 MIN_COLOR_NUM = ArcConst.MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst.MAX_COLOR_NUM

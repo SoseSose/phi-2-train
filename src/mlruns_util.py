@@ -1,17 +1,15 @@
 # %%
-from gc import collect
 import json
-from math import e
 import os
 import sqlite3
 import mlflow
 import pandas as pd
 from tqdm import tqdm
-from arc_preprocess import ArcTaskSet, ArcTask
+from data_processing.arc_preprocess import ArcTaskSet, ArcTask
 from phi2_model import BaseModel
 from arc_visualize import plot_task
 from mlflow.entities import ViewType
-from arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
+from data_processing.arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
 from pathlib import Path
 
 DB_PATH = "result/mlruns.db"

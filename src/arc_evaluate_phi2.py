@@ -1,5 +1,5 @@
 # %%
-from arc_preprocess import ArcTaskSet
+from data_processing.arc_preprocess import ArcTaskSet
 from arc_visualize import plot_task
 from utils import fix_random_seed
 from phi2_model import Phi2

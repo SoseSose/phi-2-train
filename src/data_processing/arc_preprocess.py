@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 
-from const import ArcConst
+from data_processing.const import ArcConst
 
 MIN_COLOR_NUM = ArcConst().MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst().MAX_COLOR_NUM
