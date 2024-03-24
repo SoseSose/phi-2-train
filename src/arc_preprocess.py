@@ -14,6 +14,8 @@ from const import ArcConst
 MIN_COLOR_NUM = ArcConst().MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst().MAX_COLOR_NUM
 MAX_SIZE = ArcConst().MAX_IMG_SIZE
+VR_DELIM = ""
+HR_DELIM = "\n"
 
 class ArcImage:
     def __init__(
@@ -42,17 +44,17 @@ class ArcImage:
         self.x = len(original_2d_list[0])
         self.y = len(original_2d_list)
 
-    def to_str(self, vr_delim, hr_delim) -> str:
+    def to_str(self) -> str:
         char_two_d_list = [[str(one_num) for one_num in row] for row in self.img]
         # num to char
-        row_joined_list = [vr_delim.join(row) for row in char_two_d_list]
-        return hr_delim.join(row_joined_list)
+        row_joined_list = [VR_DELIM.join(row) for row in char_two_d_list]
+        return HR_DELIM.join(row_joined_list)
 
     def to_2d_list(self) -> List[List[int]]:
         return self.img
 
     def __str__(self) -> str:
-        return self.to_str(vr_delim="", hr_delim="\n")
+        return self.to_str()
 
     @property
     def to_np(self) -> npt.NDArray[np.int32]:
@@ -104,7 +106,7 @@ class TestArcImage:
         test_image = self.get_test_image()
         arc_image = ArcImage(test_image)
         assert (
-            arc_image.to_str(vr_delim="", hr_delim="\n")
+            arc_image.to_str()
             == "0123456789\n0123456789\n0123456789\n0123456789\n0123456789\n0123456789"
         )
 
@@ -168,6 +170,8 @@ def test_Arc_inout_input_same_return_true():
 
     assert arc_inout == arc_inout2
 
+TRAIN_NAME = "train"
+TEST_NAME = "test"
 
 @dataclass
 class ArcTask:
@@ -200,30 +204,31 @@ class ArcTask:
 
     def to_str(
         self,
-        train_name,
-        test_name,
         show_test_out: bool = False,
         show_candidata: bool = False,
     ) -> str:
         rslt = ""
 
         for i, inout in enumerate(self.train):
-            rslt += f"-{train_name}{i}-\n{inout}\n\n"
+            rslt += f"-{TRAIN_NAME}{i}-\n{inout}\n\n"
 
         if show_candidata:
             for i, one_candidate in enumerate(self.candidate):
                 rslt += f"-candidate{i}-\n{one_candidate}\n\n"
 
-        rslt += f"-{test_name}-\n"
+        rslt += f"-{TEST_NAME}-\n"
         rslt += f"{self.test_input}\n->"
 
         if show_test_out:
             rslt += f"\n{self.test_output}"
 
         return rslt
-
+    
+    def question(self) -> str:
+        return self.to_str()
+    
     def __str__(self) -> str:
-        return self.to_str("train", "test")
+        return self.to_str()
 
     def __eq__(self, other: "ArcTask") -> bool:
         
@@ -288,7 +293,7 @@ class TestArcTask:
             candidate=[arc_image],
         )
 
-        rslt = arc_task.to_str("train", "test", show_candidata=True, show_test_out=True)
+        rslt = arc_task.to_str(show_candidata=True, show_test_out=True)
 
         need_str = """\
         -train0-
