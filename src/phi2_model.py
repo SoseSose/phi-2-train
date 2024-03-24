@@ -17,12 +17,6 @@ class BaseModel(ABC):
     def get_token_num_and_answer(self, question:str)->tuple[str, int]:
         pass
 
-class MockModel(BaseModel):
-    def build(self):
-        pass
-
-    def get_token_num_and_answer(self, question:str)->tuple[str, int]:
-        return "mock", -1
 
 class Phi2(BaseModel):
     MAX_TOKENS = 2048

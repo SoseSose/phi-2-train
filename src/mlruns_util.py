@@ -1,12 +1,14 @@
 # %%
+from gc import collect
 import json
+from math import e
 import os
 import sqlite3
 import mlflow
 import pandas as pd
 from tqdm import tqdm
 from arc_preprocess import ArcTaskSet, ArcTask
-from phi2_model import BaseModel, MockModel
+from phi2_model import BaseModel
 from arc_visualize import plot_task
 from mlflow.entities import ViewType
 from arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
@@ -57,7 +59,7 @@ class MlflowRapper:
 
             for i, data in tqdm(enumerate(ds)):
                 input_identifier = data.name
-                question = data.to_str("example", "test")
+                question = data.to_str()
                 output, token_num = model.get_token_num_and_answer(question)
                 df.loc[i] = [input_identifier, question, output, token_num]
 
@@ -91,9 +93,9 @@ class MlflowRapper:
 
             correct_ans = data.test_output
             if isinstance(correct_ans, ArcImage):
-                correct_ans = correct_ans.to_str("", "\n")
+                correct_ans = correct_ans.to_str()
 
-            model_answer = row[self.input_identifier].split("\n\n")[0]
+            model_answer = row[self.answer].split("\n\n")[0]
 
             if correct_ans == model_answer:
                 collect_ans[name] = str_to_arc_image(model_answer)
@@ -144,16 +146,63 @@ def test_evalate_n_log(tmp_path: Path):
     assert run_id is not None
 
 
-def test_calculate_num_collect(tmp_path: Path):
+
+import random
+class MockModel(BaseModel):
+    def __init__(self, ds:list[ArcTask], expected_collect_num:int) -> None:
+        super().__init__()
+
+        self.ques_and_ans = {data.question():data.test_output.to_str() for data in ds[:expected_collect_num]}
+
+    def build(self):
+        pass
+
+    def get_token_num_and_answer(self, question:str)->tuple[str, int]:
+        if question in self.ques_and_ans:
+            answer = self.ques_and_ans[question]
+        else:
+            answer = "dummy"
+        return answer, 0
+    
+    def get_answers(self, ds:list[ArcTask])->list[str]:
+        answers = []
+
+        for data in ds:
+            question = data.question()
+            answer = self.get_token_num_and_answer(question)[0]
+            answers.append(answer)
+        return answers
+
+import random
+def test_MockModel():
     ds = ArcTaskSet().path_to_arc_task("data/evaluation")
-    mock = MockModel()
+    expected_collect_num = random.randint(0, len(ds))
+
+    collect_answers = [data.test_output.to_str() for data in ds]
+    model = MockModel(ds, expected_collect_num=expected_collect_num)
+
+    answers = model.get_answers(ds)
+
+    collect_num = 0
+    for ans, collect_ans in zip(answers, collect_answers):
+        if ans == collect_ans:
+            collect_num += 1
+
+    assert expected_collect_num == collect_num
+
+
+def test_calculate_num_collect(tmp_path: Path):
+
+    ds = ArcTaskSet().path_to_arc_task("data/evaluation")
+    expected_collect_num = random.randint(0, len(ds))
+    mock = MockModel(expected_collect_num=expected_collect_num, ds=ds)
     os.chdir(tmp_path)
 
     experiment_name = "test"
-    # print(ds)
     mlflow_rapper = MlflowRapper(experiment_name)
 
     num_collect = mlflow_rapper.calculate_num_collect(ds, mock)
 
-    assert num_collect == 0
+    assert num_collect == expected_collect_num
+
 
