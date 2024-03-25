@@ -664,7 +664,7 @@ def save_logical_tasks(save_dir: Path, task_num: int, task_len: int):
             file.unlink()
 
     else:
-        save_dir.mkdir()
+        save_dir.mkdir(parents=True)
 
     # file_name_key_tasks = {}
     tasks = []
@@ -678,7 +678,6 @@ def save_logical_tasks(save_dir: Path, task_num: int, task_len: int):
 
 def load_logical_tasks(tasks_dir: Path) -> list[dict]:
     files = sorted(tasks_dir.glob(f"*{FILE_EXTENTION}"))
-    print(files)
     tasks = []
     for file in files:
         task = _load_logical_task(file)
@@ -700,7 +699,3 @@ def test_save_logical_tasks(tmp_path: Path):
         assert loaded_task["input"] == str(saved_task)
         assert loaded_task["output"] == str(saved_task.test_output)
 
-#%%
-if __name__ == "__main__":
-    save_logical_tasks(Path("data/logical_op/train"), 1000, 10)
-    save_logical_tasks(Path("data/logical_op/evaluation"), 1000, 10)

@@ -5,11 +5,10 @@ import sqlite3
 import mlflow
 import pandas as pd
 from tqdm import tqdm
-from data_processing.arc_preprocess import ArcTaskSet, ArcTask
-from phi2_model import BaseModel
+from data_processing.arc_preprocess import ArcTaskSet, ArcTask,str_to_arc_image, ArcImage
+from architectures.phi2 import BaseModel
 from arc_visualize import plot_task
 from mlflow.entities import ViewType
-from data_processing.arc_preprocess import ArcTaskSet, str_to_arc_image, ArcImage
 from pathlib import Path
 
 DB_PATH = "result/mlruns.db"

@@ -1,7 +1,7 @@
 # %%
-from logical_op_ds_make import load_logical_tasks
+from data_processing.logical_op_ds_make import load_logical_tasks
 from data_processing.arc_preprocess import ArcTask, ArcTaskSet
-from phi2_model import Phi2
+from architectures.phi2 import Phi2
 from torch.utils.data import DataLoader
 from torch.optim import SGD
 from transformers import get_scheduler
@@ -101,7 +101,7 @@ def test_main():
     acc = Model.eval_ds(eval_ds)
     assert acc > before_train_acc
 
-if __name__ == "__main__":
-    test_main()
+# if __name__ == "__main__":
+#     test_main()
 
 
