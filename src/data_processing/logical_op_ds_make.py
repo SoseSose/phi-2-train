@@ -683,8 +683,8 @@ def load_logical_tasks(tasks_dir: Path) -> list[dict]:
         task = _load_logical_task(file)
         tasks.append(
             {
-                "input": str(task),
-                "output": str(task.test_output),
+                "input": task.question,
+                "output": task.test_output.to_str(),
             }
         )
 
