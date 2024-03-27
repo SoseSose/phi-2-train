@@ -30,14 +30,10 @@ class Phi2_light(LightningModule):
         self,
         save_dir: str,
         lr: float,
-        device: str,
-        acc_fn: Accuracy,
     ):
         super().__init__()
         self.save_dir = save_dir
-        self.set_device = device
         self.__isnt_instanced = True
-        self.accracy_fn = acc_fn
         self.lr = lr
 
     def build(self):
@@ -60,7 +56,6 @@ class Phi2_light(LightningModule):
                 self.model = AutoModelForCausalLM.from_pretrained(
                     self.save_dir,
                     torch_dtype="auto",
-                    device_map=self.set_device,
                     trust_remote_code=True,
                 )
 
@@ -122,7 +117,7 @@ class Phi2_light(LightningModule):
     def test_step(self, batch, batch_idx) -> dict[str, Any]:
         question, answer = batch
         model_answer = self.forward(batch)
-        self.acc_fn(model_answer, answer)
+        # self.acc_fn(model_answer, answer)
         # return metrics
 
     def configure_optimizers(self) -> Optimizer:
@@ -183,7 +178,7 @@ class Phi2(BaseModel):
                     trust_remote_code=True,
                 )
 
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.model:torch.nn.modules = AutoModelForCausalLM.from_pretrained(
                     self.save_dir,
                     torch_dtype="auto",
                     device_map=self.device,
