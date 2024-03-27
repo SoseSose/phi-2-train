@@ -224,6 +224,7 @@ class ArcTask:
 
         return rslt
     
+    @property
     def question(self) -> str:
         return self.to_str()
     
