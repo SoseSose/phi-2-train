@@ -8,6 +8,8 @@ from abc import abstractclassmethod, ABC
 from torch.optim import Optimizer, AdamW
 import torch.nn.functional as F
 from torchmetrics import Accuracy
+# from transformers.
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from lightning import LightningModule
 
@@ -42,7 +44,7 @@ class Phi2_light(LightningModule):
             if not Path(self.save_dir).exists():
                 # download phi2
                 self.tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2")
-                self.model = AutoModelForCausalLM.from_pretrained("microsoft/phi-2")
+                self.model:AutoModelForCausalLM = AutoModelForCausalLM.from_pretrained("microsoft/phi-2")
 
                 # save phi2
                 self.tokenizer.save_pretrained(self.save_dir)
@@ -53,13 +55,14 @@ class Phi2_light(LightningModule):
                     self.save_dir,
                     trust_remote_code=True,
                 )
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.model:AutoModelForCausalLM = AutoModelForCausalLM.from_pretrained(
                     self.save_dir,
                     torch_dtype="auto",
                     trust_remote_code=True,
                 )
 
-    def _encode(self, question: str) -> torch.Tensor:
+    def _encode(self, question: str) ->CausalLMOutputWithPast:
+
         token_ids = self.tokenizer.encode(
             question,
             truncation=True,
@@ -68,13 +71,37 @@ class Phi2_light(LightningModule):
         )
         return token_ids
 
+    def _encode_ques_and_ans(self, question: str, ans: str) -> CausalLMOutputWithPast:
+
+        self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        question = "What is the sum of 1 and 2?"
+        ans = "It is 3."
+        question_and_ans = question + ans
+        tokenized_ques_and_ans = phi2.tokenizer(
+            text = [question, question_and_ans],
+            padding="longest",
+            return_tensors="pt",
+            add_special_tokens=True,
+            return_attention_mask=True,
+            return_length=True,
+        )
+        return tokenized_ques_and_ans
+
     def forward(self, question: str) -> torch.Tensor:
         self.build()
         token_ids = self._encode(question)
         token_ids = torch.tensor(
             token_ids,
             device=self.model.device,
-        ).unsqueeze(0)
+        )
+
+        return self.model.forward(token_ids.to(self.model.device))
+
+    
+    def generate_ids(self,question:str)->str:
+
+        self.build()
+        token_ids = self._encode(question)
         question_token_num = len(token_ids[0])
         model_max_token_num = self.model.config.max_position_embeddings
         answer_max_length = min(
@@ -101,15 +128,21 @@ class Phi2_light(LightningModule):
         return ouput_ids_delete_question
 
     def get_ans(self, question: str) -> str:
-        output_ids = self.forward(question)
+        output_ids = self.generate_ids(question)
         answer = self.tokenizer.decode(output_ids)
         return answer
 
     def training_step(self, batch, batch_idx):
         question, collect_answer = batch
-        model_answer_ids = self.forward(batch)
-        collect_answer_ids = self._encode(collect_answer)
-        loss = F.mse_loss(model_answer_ids, collect_answer_ids)
+        tokenized_ques_and_ans = self._encode_ques_and_ans(question, collect_answer)
+        question_ids = tokenized_ques_and_ans.input_ids[0]
+        ans_ids = tokenized_ques_and_ans.input_ids[1]
+
+        model_answer_logits = self.model.forward(question_ids.to(self.model.device))
+
+        question_mask = torch.where(tokenized_ques_and_ans.attention_mask[0]==0, 1, 0)
+        loss = F.nll_loss(model_answer_logits, ans_ids, weight=question_mask)
+
 
         # self.log_dict(metrics, on_epoch=True, on_step=False)
         return loss
@@ -204,7 +237,6 @@ class Phi2(BaseModel):
                 token_ids = self.tokenizer.encode(
                     question,
                     add_special_tokens=True,
-                    # add_special_tokens=False,
                 )
                 token_ids = torch.tensor(token_ids).unsqueeze(0)
                 token_num = len(token_ids[0])
@@ -235,3 +267,9 @@ def test_get_token_num_and_anser():
     print(answer)
     assert answer is not None
     assert token_num is not None
+
+#%%
+phi2 = Phi2_light("D:/models/phi2", 2e-4)
+phi2.build()
+phi2 = phi2.to("cuda:0")
+print(phi2.get_ans("What is the sum of 1 and 2?"))

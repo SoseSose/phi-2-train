@@ -1,7 +1,6 @@
 # %%
-import torch
 from lightning import LightningDataModule
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
 
 from pathlib import Path
 
