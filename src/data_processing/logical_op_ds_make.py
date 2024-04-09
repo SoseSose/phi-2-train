@@ -1,8 +1,7 @@
 # %%
 import dataclasses
-import pickle
+import json
 import random
-import uuid
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +10,6 @@ import pytest
 from tqdm import tqdm
 
 from data_processing.arc_preprocess import ArcImage, ArcInout, ArcTask
-
 from data_processing.const import ArcConst, ArcColor
 
 MIN_COLOR_NUM = ArcConst.MIN_COLOR_NUM
@@ -632,27 +630,32 @@ def logical_task(train_task_len: int) -> ArcTask:
     return rslt
 
 
-FILE_EXTENTION = ".pkl"
-def _save_logical_task(save_path: Path, task_len: int):
+FILE_EXTENTION = ".json"
+
+
+def _save_logical_task(save_path: Path, task_len: int) -> dict:
     task = logical_task(task_len)
-    with save_path.open("wb") as f:
-        pickle.dump(task, f)
-    pickle.dump(task, save_path.open("wb"))
-    return task
+    saved_task = {
+        "input": task.question,
+        "output": task.test_output.to_str(),
+    }
+    with save_path.open("w") as f:
+        json.dump(saved_task, f)
+    return saved_task
 
 
-def _load_logical_task(f_path: Path) -> ArcTask:
-    task = pickle.load(f_path.open("rb"))
-    if not isinstance(task, ArcTask):
-        raise ValueError(f"{f_path} is not ArcTask")
+def _load_logical_task(f_path: Path) -> dict:
+    with f_path.open() as f:
+        task = json.load(f)
     return task
 
 
 def test_save_and_load_logical_task(tmp_path: Path):
     f_path = tmp_path / f"test{FILE_EXTENTION}"
-    saved_task= _save_logical_task(f_path, task_len=10)
+    saved_task = _save_logical_task(f_path, task_len=10)
     loaded_task = _load_logical_task(f_path)
-    assert saved_task == loaded_task
+    assert saved_task["input"] == loaded_task["input"]
+    assert saved_task["output"] == loaded_task["output"]
 
 
 def save_logical_tasks(save_dir: Path, task_num: int, task_len: int):
@@ -681,21 +684,15 @@ def load_logical_tasks(tasks_dir: Path) -> list[dict]:
     tasks = []
     for file in files:
         task = _load_logical_task(file)
-        tasks.append(
-            {
-                "input": task.question,
-                "output": task.test_output.to_str(),
-            }
-        )
+        tasks.append(task)
 
     return tasks
 
 
-def test_save_logical_tasks(tmp_path: Path):
+def test_save_and_load_logical_tasks(tmp_path: Path):
     saved_tasks = save_logical_tasks(tmp_path, task_num=10, task_len=10)
     loaded_tasks = load_logical_tasks(tmp_path)
 
     for saved_task, loaded_task in zip(saved_tasks, loaded_tasks):
-        assert loaded_task["input"] == str(saved_task)
-        assert loaded_task["output"] == str(saved_task.test_output)
-
+        assert loaded_task["input"] == saved_task["input"]
+        assert loaded_task["output"] == saved_task["output"]
