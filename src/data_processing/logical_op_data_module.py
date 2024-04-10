@@ -1,10 +1,21 @@
 # %%
 from lightning import LightningDataModule
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from pathlib import Path
 
 from data_processing.logical_op_ds_make import load_logical_tasks, save_logical_tasks
+
+
+class LogicalOpDs(Dataset):
+    def __init__(self, path:Path):
+        self.tasks = load_logical_tasks(path)
+
+    def __getitem__(self, index:int):
+        return self.tasks[index]
+
+    def __len__(self):
+        return len(self.tasks)
 
 
 class LogicalOpDataModule(LightningDataModule):
@@ -15,6 +26,7 @@ class LogicalOpDataModule(LightningDataModule):
         eval_num: int,
         task_len:int,
         batch_size: int,
+        train_collate_fn=None,
     ):
         super().__init__()
 
@@ -24,6 +36,7 @@ class LogicalOpDataModule(LightningDataModule):
         self.task_len = task_len
         self.eval_dir = Path(data_dir) / "eval"
         self.batch_size = batch_size
+        self.train_collate_fn = train_collate_fn
 
 
 
@@ -33,14 +46,14 @@ class LogicalOpDataModule(LightningDataModule):
 
     def setup(self, stage: str):
         if stage == "fit":
-            self.train_ds = load_logical_tasks(self.train_dir)
-            self.eval_ds = load_logical_tasks(self.eval_dir)
+            self.train_ds = LogicalOpDs(self.train_dir)
+            self.eval_ds = LogicalOpDs(self.eval_dir)
 
         if stage == "test" and stage == "predict":
-            self.eval_ds = load_logical_tasks(self.eval_dir)
+            self.eval_ds = LogicalOpDs(self.eval_dir)
 
     def train_dataloader(self):
-        return DataLoader(self.train_ds, batch_size=self.batch_size)
+        return DataLoader(self.train_ds, batch_size=self.batch_size, collate_fn=self.train_collate_fn)
 
     def val_dataloader(self):
         return DataLoader(self.eval_ds, batch_size=self.batch_size)
@@ -50,6 +63,7 @@ class LogicalOpDataModule(LightningDataModule):
 
     def predict_dataloader(self):
         return DataLoader(self.eval_ds, batch_size=self.batch_size)
+    
 
 
 import pytest
@@ -81,6 +95,7 @@ class TestLogicalOpDataModule:
 
         data_module.setup("predict")
         assert len(data_module.eval_ds) == 20
+        
 
     def test_train_dataloader(self, tmp_path: Path):
         data_module = LogicalOpDataModule(
