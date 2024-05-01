@@ -18,8 +18,20 @@ from transformers import (
 )
 from pathlib import Path
 
+
 INSTRUCTION_TEMPLATE_BASE = "\n\n### Human:"
 RESPONSE_TEMPLATE_BASE = "\n\n### Assistant:"
+
+#%%
+
+from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+
+def print_gpu_utilization():
+    nvmlInit()
+    handle = nvmlDeviceGetHandleByIndex(0)
+    info = nvmlDeviceGetMemoryInfo(handle)
+    print(f"GPU memory occupied: {info.used//1024**2} MB.")
+
 
 
 # %%
@@ -114,6 +126,8 @@ for data in dataset:
     # print(len(data['attention_mask']))
 
 # %%
+print_gpu_utilization()
+#%%
 
 def load_model(
     model_name: str, peft_kwargs: Optional[Dict] = None
@@ -127,9 +141,10 @@ def load_model(
     model = get_peft_model(model, peft_config)
     return model
 model = load_model(model_name)
+
+print_gpu_utilization()
+
 #%%
-#training時にconfigでbos_token_id, eos_token_idを渡せる.
-# %%
 def sample_generate(
     model: torch.nn.Module,
     tokenizer: PreTrainedTokenizerBase,
@@ -150,9 +165,21 @@ holdout_str = (
 )
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
+print_gpu_utilization()
+#%%
 holdout_input = tokenizer(holdout_str, return_tensors="pt").to(device)
 original_output = sample_generate(model, tokenizer, holdout_input, max_new_tokens=5)
 print(original_output)
+print_gpu_utilization()
+
+#%%
+for data in dataset:
+
+    data["input_ids"] = torch.tensor(data["input_ids"]).unsqueeze(0).to(device)
+    data["attention_mask"] = torch.tensor(data["attention_mask"]).unsqueeze(0).to(device)
+    data["labels"] = torch.tensor(data["labels"]).unsqueeze(0).to(device)
+    out = model(**data)
+print_gpu_utilization()
 
 # %%
 ENGLISH_WORDS = ["dog", "water", "mother", "hello", "tree"]
