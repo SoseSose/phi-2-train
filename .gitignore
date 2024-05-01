@@ -3,6 +3,8 @@
 node_modules
 data/
 result/
+mlruns/
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

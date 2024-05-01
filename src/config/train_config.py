@@ -26,9 +26,9 @@ class TrainConfig:
 @dataclass
 class DataModuleConfig:
     data_dir: str = "data/logical_op"
-    train_num: int = 1000
-    eval_num: int = 200
-    task_len: int = 5
+    train_num: int = 100
+    eval_num: int = 20
+    task_len: int = 4
     batch_size: int = 1
 
 @dataclass
@@ -42,7 +42,8 @@ class MLFLowConfig:
     mlflow_description: str =  """
     オリジナルのPHI2から論理演算の学習をさせる.
     学習では自作の論理演算データセットでtest_input+test_outputの途中までを入力として,その次の1トークンを出力として学習させる.
-    evalではArc内にある論理演算タイプのタスクを解かせて,その正解数が一つでも増えれば,そのモデルを保存する.
+    eval
+    Arc内にある論理演算タイプのタスクを解かせて,その正解数が一つでも増えれば,そのモデルを保存する.
     その他,自作データセットのロスが減っているか,通常の文章生成データセットの正解率が減っていないかもチェックする.
     
     """

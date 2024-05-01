@@ -1,14 +1,129 @@
+#%%
+from transformers import DataCollatorForLanguageModeling
 import sqlite3
 from pathlib import Path
-
-import mlflow.pytorch
 import torch
+
+
+from dataclasses import asdict
+import mlflow.pytorch
 from architectures.phi2 import Phi2_light
 from config.train_config import DataModuleConfig, MLFLowConfig, TrainConfig
 from data_processing.logical_op_data_module import LogicalOpDataModule
 from lightning import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+import pytest
+from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+print(torch.__version__)
+#%%
+model = Phi2_light("D:/models/phi2", 2e-4)
+model.tokenizer.pad_token = model.tokenizer.eos_token
+data_collator = DataCollatorForLanguageModeling(tokenizer=model.tokenizer, mlm=False)
+model.build()
+#%%
+def print_gpu_utilization():
+    nvmlInit()
+    handle = nvmlDeviceGetHandleByIndex(0)
+    info = nvmlDeviceGetMemoryInfo(handle)
+    print(f"GPU memory occupied: {info.used//1024**2} MB.")
 
+
+def print_summary(result):
+    print(f"Time: {result.metrics['train_runtime']:.2f}")
+    print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
+    print_gpu_utilization()
+
+print_gpu_utilization()
+#%%
+
+def test_model_param_dtype():
+    model = Phi2_light("D:/models/phi2", 2e-4)
+    model.build()
+    for param in model.parameters():
+        assert param.dtype == torch.bfloat16
+
+#%%
+data_module = LogicalOpDataModule(
+    train_collate_fn=model.get_tokenize_func(),
+    **asdict(DataModuleConfig()),
+)
+data_module.prepare_data()
+data_module.setup("fit")
+
+print_gpu_utilization()
+#%%
+for batch in data_module.train_dataloader():
+    # print(batch["input"].shape)
+    # batch = data_collator(batch["input"])
+    print(batch)
+    print(type(batch))
+    print(batch["input"].dim())
+    print(batch["input"].shape)
+    batch["input"] = batch["input"][:100]
+    batch["labels"] = batch["labels"][:100]
+    batch["attention_mask"] = batch["attention_mask"][:100]
+    with torch.autocast(device_type="cuda"):
+        out = model.training_step(batch, 0)
+        print(out.shape)
+    break
+
+#%%
+from datasets import Dataset
+tokenizer = model.tokenizer
+def f(example):
+    tokenized = tokenizer(example['text'])
+    return tokenized
+
+dataset = Dataset.from_dict({"text": ["あいうえおかきくけこ", "さしすせそ"]})
+dataset = Dataset.from_dict({"text": ["あいうえおかきくけこ"+model.tokenizer.eos_token]})
+mapped_dataset = dataset.map(f, remove_columns=['text'])
+# print(mapped_dataset)
+# for data in mapped_dataset:
+#     print(data)
+
+data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
+batch = data_collator(list(mapped_dataset))
+print(batch)
+
+#%%
+
+@pytest.mark.filterwarnings('ignore::RuntimeWarning')
+def test_few_train_step():
+
+    trainer = Trainer(
+        max_epochs=1,  # 1エポックだけ実行
+        limit_train_batches=10,  # トレーニングは10ステップだけ
+        limit_val_batches=10,  # 検証も10ステップだけ
+        accelerator="gpu",
+        # devices=1,
+        fast_dev_run=True,
+        precision="bf16",
+    )
+
+    model = Phi2_light("D:/models/phi2", 2e-4)
+    model.build()
+
+
+    # # for module in model.modules():
+    # #     size = sum(int(np.prod(p.shape)) for p in module.parameters())
+    # #     print(size)
+    # # print(model.parameters())
+
+    data_module = LogicalOpDataModule(
+        train_collate_fn=model.get_tokenize_func(),
+        **asdict(DataModuleConfig()),
+    )
+
+
+    trainer.fit(
+        model=model,
+        datamodule=data_module,
+    )
+
+if __name__ == "__main__":
+    test_few_train_step()
+
+#%%
 
 def training_loop(
     train_cfg: TrainConfig,
@@ -18,7 +133,7 @@ def training_loop(
     model = Phi2_light("D:/models/phi2", 2e-4)
     data_module = LogicalOpDataModule(
         train_collate_fn=model.get_tokenize_func(),
-        **data_module_config.asdict(),
+        **data_module_config.to_dict(),
     )
 
     checkpoint_callback = ModelCheckpoint(
