@@ -21,7 +21,6 @@ class Phi2_params:
     trust_remote_code:bool=True
     # torch_dtype:torch.dtype=torch.float16 
 #%%
-
 class Phi2_light(LightningModule):
     def __init__(
         self,

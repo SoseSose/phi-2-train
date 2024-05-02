@@ -13,27 +13,12 @@ from data_processing.logical_op_data_module import LogicalOpDataModule
 from lightning import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 import pytest
-from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
-print(torch.__version__)
 #%%
 model = Phi2_light("D:/models/phi2", 2e-4)
 model.tokenizer.pad_token = model.tokenizer.eos_token
 data_collator = DataCollatorForLanguageModeling(tokenizer=model.tokenizer, mlm=False)
 model.build()
-#%%
-def print_gpu_utilization():
-    nvmlInit()
-    handle = nvmlDeviceGetHandleByIndex(0)
-    info = nvmlDeviceGetMemoryInfo(handle)
-    print(f"GPU memory occupied: {info.used//1024**2} MB.")
 
-
-def print_summary(result):
-    print(f"Time: {result.metrics['train_runtime']:.2f}")
-    print(f"Samples/second: {result.metrics['train_samples_per_second']:.2f}")
-    print_gpu_utilization()
-
-print_gpu_utilization()
 #%%
 
 def test_model_param_dtype():
@@ -50,7 +35,6 @@ data_module = LogicalOpDataModule(
 data_module.prepare_data()
 data_module.setup("fit")
 
-print_gpu_utilization()
 #%%
 for batch in data_module.train_dataloader():
     # print(batch["input"].shape)
