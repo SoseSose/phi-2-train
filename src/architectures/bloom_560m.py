@@ -6,9 +6,9 @@ from typing import Any
 
 import torch
 from lightning import LightningModule
-from torch.optim import AdamW, Optimizer
+from torch.optim import AdamW,SGD, Optimizer
 from torchmetrics import Accuracy
-from transformers import AutoModelForCausalLM, AutoTokenizer, BatchEncoding
+from transformers import AutoModelForCausalLM, AutoTokenizer, BatchEncoding, get_linear_schedule_with_warmup
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 MODEL_NAME = "bigscience/bloom-560m"
@@ -20,7 +20,7 @@ class Bloom560m_tokenizer_params:
     padding_side: str = "right"
 
 
-def get_bloom560m_tokenizer(save_dir: str):
+def get_bloom560m_tokenizer(save_dir: str)->AutoTokenizer:
     tokenizer_save_path = Path(save_dir) / MODEL_NAME
 
     if (tokenizer_save_path/"tokenizer.json").exists():
@@ -34,7 +34,6 @@ def get_bloom560m_tokenizer(save_dir: str):
             **asdict(Bloom560m_tokenizer_params()),
         )
         tokenizer.save_pretrained(tokenizer_save_path)
-        tokenizer = tokenizer
 
     return tokenizer
 
@@ -116,7 +115,6 @@ class Bloom560m(LightningModule):
         lr: float,
     ):
         super().__init__()
-
         self.lr = lr
 
         model_save_path = Path(save_dir) / MODEL_NAME
@@ -137,22 +135,32 @@ class Bloom560m(LightningModule):
         return self.model.forward(**batch)
 
     def training_step(self, batch, batch_idx):
-
         model_answer_logits = self.model.forward(**batch)
-
+        self.log("train_loss", model_answer_logits.loss,  on_epoch=True, prog_bar=True, logger=True)
         return model_answer_logits.loss
-        # self.log_dict(metrics, on_epoch=True, on_step=False)
 
+    def validation_step(self, batch, batch_idx):
+        model_answer_logits = self.model.forward(**batch)
+        self.log("val_loss", model_answer_logits.loss)
 
     def test_step(self, batch, batch_idx) -> dict[str, Any]:
-        question, answer = batch
-        model_answer = self.get_ans(question)
-        model_answer = model_answer.split("\n\n")[0]
-        return {"correct": model_answer == answer}
+        # question, answer = batch
+        # model_answer = self.get_ans(question)
+        # model_answer = model_answer.split("\n\n")[0]
+        # return {"correct": model_answer == answer}
+        pass
 
     def configure_optimizers(self) -> Optimizer:
-        return AdamW(
+        # oprimizer = AdamW(
+        #     params=self.model.parameters(),
+        #     lr=self.lr,
+        #     weight_decay=0.03,
+        # )
+        oprimizer = SGD(
             params=self.model.parameters(),
             lr=self.lr,
-            weight_decay=0.0,
+            weight_decay=0.03,
         )
+
+        schedulers = get_linear_schedule_with_warmup(optimizer=oprimizer, num_warmup_steps=10, num_training_steps=1000)
+        return [oprimizer], [schedulers]

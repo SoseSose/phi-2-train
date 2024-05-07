@@ -90,13 +90,11 @@ def create_special_mask(tokenizer, example: dict) -> dict:
 
 
 def masked_ds(ds, tokenizer):
-    # mask human characters but keep the assistant text as it is
-    dataset_masked = ds.map(lambda x: create_special_mask(tokenizer, x))
-    # convert dataset from lists to torch tensors
-    dataset_masked.set_format(
+    ds = ds.map(lambda x: create_special_mask(tokenizer, x))
+    ds.set_format(
         type="torch", columns=["input_ids", "attention_mask", "labels"]
-    )
-    return dataset_masked
+    ) # convert dataset from lists to torch tensors
+    return ds
 
 
 def get_masked_ds(tokenizer):
@@ -114,8 +112,6 @@ class EasyEnToSpDM(LightningDataModule):
         self.batch_size = batch_size
 
     def prepare_data(self):
-        # save_logical_tasks(self.train_dir, self.train_num, self.task_len)
-        # save_logical_tasks(self.eval_dir, self.eval_num, self.task_len)
         self.ds = get_masked_ds(self.tokenizer)
 
     def setup(self, stage: str):
