@@ -6,9 +6,14 @@ from typing import Any
 
 import torch
 from lightning import LightningModule
-from torch.optim import AdamW,SGD, Optimizer
-from torchmetrics import Accuracy
-from transformers import AutoModelForCausalLM, AutoTokenizer, BatchEncoding, get_linear_schedule_with_warmup
+from torch.optim import SGD, AdamW, Optimizer
+from torchmetrics.text import Perplexity
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BatchEncoding,
+    get_linear_schedule_with_warmup,
+)
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 MODEL_NAME = "bigscience/bloom-560m"
@@ -20,10 +25,10 @@ class Bloom560m_tokenizer_params:
     padding_side: str = "right"
 
 
-def get_bloom560m_tokenizer(save_dir: str)->AutoTokenizer:
+def get_bloom560m_tokenizer(save_dir: str) -> AutoTokenizer:
     tokenizer_save_path = Path(save_dir) / MODEL_NAME
 
-    if (tokenizer_save_path/"tokenizer.json").exists():
+    if (tokenizer_save_path / "tokenizer.json").exists():
         tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_save_path,
             **asdict(Bloom560m_tokenizer_params()),
@@ -38,73 +43,13 @@ def get_bloom560m_tokenizer(save_dir: str)->AutoTokenizer:
     return tokenizer
 
 
-def get_tokenize_func(tokenizer):
-    def tokenize_func(inputs):
-        """
-        questionとanswerをトークン化して,結合し["input"]は最終トークンがeos_token_idになるよう,["labels"]は元のデータになるように,attention_maskも最終トークンのみ0で他は1になるようにする
-        !!バッチには対応していない!!
-        """
-        inputs = inputs[0]
-        # なぜかcollate_fnを使うとinputsがリストになるので,ここで取り出す
-        question = inputs["input"]
-        answer = inputs["output"]
-
-        def tokenize(text):
-            return tokenizer.encode(
-                text,
-                truncation=True,
-            )
-
-        tokenized_que = tokenize(question)
-        tokenized_ans = tokenize(answer + tokenizer.eos_token)
-        # 元のデータにはeos_tokenがないので,ここで追加する
-
-        random_point = random.randint(0, len(tokenized_ans))
-        # random_pointは最後のeos_tokenも含む可能性はあることは確認ずみ
-        clipped_tokenized_ans = tokenized_ans[:random_point]
-
-        tokenized_text = tokenized_que + clipped_tokenized_ans
-
-        def truncate(text):
-            max_len = tokenizer.model_max_length
-            if len(text) > max_len:
-                return text[:max_len]
-            else:
-                return text
-
-        tokenized_text = truncate(tokenized_text)
-        labels = tokenized_text.copy()
-        input_text = tokenized_text.copy()
-        attention_mask = [1] * len(input_text)
-        input_text[-1] = tokenizer.eos_token_id
-        # 1トークン予測するのでinputの最終トークンはeos_tokenにする
-
-        # attention_mask[-1] = 0
-
-        def to_val_tensor(val):
-            val = torch.tensor(val)
-            if val.dim() == 1:
-                val = val.unsqueeze(0)
-            return val
-
-        # input_text = to_val_tensor(input_text).to(torch.long)
-        # attention_mask = to_val_tensor(attention_mask).to(model.dtype)
-        # labels = to_val_tensor(labels).to(dtype=torch.long)
-
-        return {
-            "input": input_text,
-            "labels": labels,
-            "attention_mask": attention_mask,
-        }
-
-    return tokenize_func
 
 @dataclass
 class Bloom560m_params:
     device_map: str = "cuda"
     trust_remote_code: bool = True
-    torch_dtype:torch.dtype=torch.float16
-    use_cache:bool=True
+    torch_dtype: torch.dtype = torch.float16
+    use_cache: bool = True
     # use_flash_attention_2:bool=True
 
 
@@ -116,9 +61,12 @@ class Bloom560m(LightningModule):
     ):
         super().__init__()
         self.lr = lr
+        self.tokenizer = get_bloom560m_tokenizer(save_dir)
+        self.save_dir = save_dir
 
-        model_save_path = Path(save_dir) / MODEL_NAME
-        if (model_save_path/"config.json").exists():
+    # def build_model(self):
+        model_save_path = Path(self.save_dir) / MODEL_NAME
+        if (model_save_path / "config.json").exists():
             self.model: AutoModelForCausalLM = AutoModelForCausalLM.from_pretrained(
                 model_save_path,
                 **asdict(Bloom560m_params()),
@@ -136,7 +84,13 @@ class Bloom560m(LightningModule):
 
     def training_step(self, batch, batch_idx):
         model_answer_logits = self.model.forward(**batch)
-        self.log("train_loss", model_answer_logits.loss,  on_epoch=True, prog_bar=True, logger=True)
+        self.log(
+            "train_loss",
+            model_answer_logits.loss,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
         return model_answer_logits.loss
 
     def validation_step(self, batch, batch_idx):
@@ -144,11 +98,21 @@ class Bloom560m(LightningModule):
         self.log("val_loss", model_answer_logits.loss)
 
     def test_step(self, batch, batch_idx) -> dict[str, Any]:
-        # question, answer = batch
-        # model_answer = self.get_ans(question)
-        # model_answer = model_answer.split("\n\n")[0]
-        # return {"correct": model_answer == answer}
-        pass
+        model_answer_logits = self.model.forward(**batch)
+        self.log("test_loss", model_answer_logits.loss)
+
+    def predict_step(self, batch, batch_idx):
+        # print(batch)
+        print(batch["input_ids"].shape)
+        label = batch["input_ids"][:, -2]
+        question = batch["input_ids"][:, :-2]
+        question_str = self.tokenizer.batch_decode(question)
+        label_str = self.tokenizer.batch_decode(label)
+
+        output = self.model.generate(question, max_length=100)
+        gen_text = self.tokenizer.batch_decode(output)
+        return {"question":question_str, "gen_text": gen_text, "label": label_str}
+        # return {"original_text": original_text}
 
     def configure_optimizers(self) -> Optimizer:
         # oprimizer = AdamW(
@@ -162,5 +126,7 @@ class Bloom560m(LightningModule):
             weight_decay=0.03,
         )
 
-        schedulers = get_linear_schedule_with_warmup(optimizer=oprimizer, num_warmup_steps=10, num_training_steps=1000)
+        schedulers = get_linear_schedule_with_warmup(
+            optimizer=oprimizer, num_warmup_steps=10, num_training_steps=1000
+        )
         return [oprimizer], [schedulers]

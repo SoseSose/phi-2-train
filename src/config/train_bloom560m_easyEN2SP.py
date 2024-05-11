@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from lightning import Trainer
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 
 @dataclass
 class TrainConfig:
@@ -12,18 +14,37 @@ class TrainConfig:
 
     max_length: int = 128
     batch_size: int = 256
-    num_workers: int = os.cpu_count()
-    max_epochs: int = 10
-    max_time: dict[str, float] = field(default_factory=lambda: {"hours": 3})
-    model_checkpoint_dir: str = os.path.join(
-        Path(__file__).parents[2],
-        "model-checkpoints",
+
+def get_trainer():
+    checkpoint_callback = ModelCheckpoint(
+        filename="{epoch}-{train_loss:.2f}",
+        monitor="val_loss",
+        mode="min",
+        verbose=True,
+        save_top_k=1,
     )
-    min_delta: float = 0.005
-    patience: int = 10
+    early_stopping = EarlyStopping(
+        monitor="val_loss",
+        min_delta= 0.005,
+        patience= 10,
+        verbose=True,
+        mode="min",
+    )
 
-
-
+    trainer = Trainer(
+        callbacks=[early_stopping, checkpoint_callback],
+        default_root_dir= os.path.join(
+            Path(__file__).parents[2],
+            "model-checkpoints",
+        ),
+        max_epochs=10,
+        max_time={"hours": 3},
+        accelerator="gpu",
+        precision="bf16-mixed",
+        devices=1,
+        # fast_dev_run=True,
+    )
+    return trainer
 
 @dataclass
 class MLFLowConfig:
