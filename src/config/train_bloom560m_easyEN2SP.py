@@ -1,19 +1,10 @@
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from lightning import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 
-@dataclass
-class TrainConfig:
-    pretrained_model: str = "roberta-base"
-    num_classes: int = 2
-    lr: float = 2e-4
-    device = "cuda:0"
-
-    max_length: int = 128
-    batch_size: int = 256
 
 def get_trainer():
     checkpoint_callback = ModelCheckpoint(
@@ -37,7 +28,7 @@ def get_trainer():
             Path(__file__).parents[2],
             "model-checkpoints",
         ),
-        max_epochs=10,
+        max_epochs=30,
         max_time={"hours": 3},
         accelerator="gpu",
         precision="bf16-mixed",
@@ -56,3 +47,6 @@ class MLFLowConfig:
     mlflow_description: str = """
     bloom560mで簡単なENからSPへの変換を学習する
     """
+
+class MLFlowExperimentManager:
+    def __init__(self):

@@ -1,5 +1,4 @@
 # %%
-import random
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -7,14 +6,11 @@ from typing import Any
 import torch
 from lightning import LightningModule
 from torch.optim import SGD, AdamW, Optimizer
-from torchmetrics.text import Perplexity
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    BatchEncoding,
     get_linear_schedule_with_warmup,
 )
-from transformers.modeling_outputs import CausalLMOutputWithPast
 
 MODEL_NAME = "bigscience/bloom-560m"
 
@@ -64,7 +60,6 @@ class Bloom560m(LightningModule):
         self.tokenizer = get_bloom560m_tokenizer(save_dir)
         self.save_dir = save_dir
 
-    # def build_model(self):
         model_save_path = Path(self.save_dir) / MODEL_NAME
         if (model_save_path / "config.json").exists():
             self.model: AutoModelForCausalLM = AutoModelForCausalLM.from_pretrained(
@@ -102,8 +97,6 @@ class Bloom560m(LightningModule):
         self.log("test_loss", model_answer_logits.loss)
 
     def predict_step(self, batch, batch_idx):
-        # print(batch)
-        print(batch["input_ids"].shape)
         label = batch["input_ids"][:, -2]
         question = batch["input_ids"][:, :-2]
         question_str = self.tokenizer.batch_decode(question)
@@ -112,14 +105,8 @@ class Bloom560m(LightningModule):
         output = self.model.generate(question, max_length=100)
         gen_text = self.tokenizer.batch_decode(output)
         return {"question":question_str, "gen_text": gen_text, "label": label_str}
-        # return {"original_text": original_text}
 
     def configure_optimizers(self) -> Optimizer:
-        # oprimizer = AdamW(
-        #     params=self.model.parameters(),
-        #     lr=self.lr,
-        #     weight_decay=0.03,
-        # )
         oprimizer = SGD(
             params=self.model.parameters(),
             lr=self.lr,
@@ -127,6 +114,6 @@ class Bloom560m(LightningModule):
         )
 
         schedulers = get_linear_schedule_with_warmup(
-            optimizer=oprimizer, num_warmup_steps=10, num_training_steps=1000
+            optimizer=oprimizer, num_warmup_steps=100, num_training_steps=1000
         )
         return [oprimizer], [schedulers]

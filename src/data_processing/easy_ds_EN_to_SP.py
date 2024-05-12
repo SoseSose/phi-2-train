@@ -1,8 +1,7 @@
 # %%
-import torch
 from datasets import Dataset
 from torch.utils.data import DataLoader
-from transformers import BatchEncoding, PreTrainedTokenizerBase
+from transformers import  PreTrainedTokenizerBase
 from lightning import LightningDataModule
 
 INSTRUCTION_TEMPLATE_BASE = "\n\n### Human:"
@@ -56,7 +55,6 @@ def tokenized_ds(ds, tokenizer):
         #! padding=Trueを追加している.
     )
 
-
 def add_labels_to_ds(ds):
     return ds.map(lambda x: {"labels": x["input_ids"]}, batched=True)
 
@@ -102,7 +100,8 @@ def get_masked_ds(tokenizer):
     ds = add_special_tokens_to_ds(ds, tokenizer)
     ds = tokenized_ds(ds, tokenizer)
     ds = add_labels_to_ds(ds)
-    return masked_ds(ds, tokenizer)
+    ds = masked_ds(ds, tokenizer)
+    return ds
 
 
 class EasyEnToSpDM(LightningDataModule):
@@ -133,65 +132,3 @@ class EasyEnToSpDM(LightningDataModule):
 
     def predict_dataloader(self):
         return self.dl
-
-
-def sample_generate(
-    model: torch.nn.Module,
-    tokenizer: PreTrainedTokenizerBase,
-    inputs: BatchEncoding,
-    **kwargs,
-) -> str:
-    """Runs tokenized text through the model and returns the generated text."""
-
-    outputs = model.generate(**inputs, **kwargs)
-    gen_text = tokenizer.batch_decode(
-        # strip the text of the prompt
-        outputs[:, inputs["input_ids"].shape[1] :]
-    )
-    return gen_text[0]
-
-
-def predict_training_set(
-    model: torch.nn.Module,
-    tokenizer: PreTrainedTokenizerBase,
-    english_words: list[str] = ENGLISH_WORDS,
-    spanish_words: list[str] = SPANISH_WORDS,
-):
-    """Runs predictions on the entire training set."""
-    for eng, span in zip(english_words, spanish_words):
-        inputs2 = tokenizer(
-            f'\n\n### Human: How do you say "{eng}" in Spanish?\n\n### Assistant:<s>',
-            return_tensors="pt",
-        ).to(model.device)
-        print(
-            "real answer:",
-            span,
-            "\tpredicted answer:",
-            sample_generate(model, tokenizer, inputs2, max_new_tokens=5),
-        )
-
-
-def print_iterative_generate(model, tokenizer, inputs):
-    """Approximates the training forward pass by iterating through a sequence
-    and predicting one token at a time.
-    """
-    tok_outputs = []
-    for tok_id in range(1, len(inputs["input_ids"][0]) + 1):
-        iterative_inputs = inputs.copy()
-        iterative_inputs["input_ids"] = inputs["input_ids"][:, :tok_id]
-        iterative_inputs["attention_mask"] = inputs["attention_mask"][:, :tok_id]
-        tok_outputs.append(
-            sample_generate(model, tokenizer, iterative_inputs, max_new_tokens=1)
-        )
-    print("".join(tok_outputs))
-
-
-def try_print_iterative_gen(model, tokenizer):
-    holdout_str = (
-        '\n\n### Human: How do you say "good" in Spanish?\n\n### Assistant:<s>'  # bueno
-    )
-    holdout_input = tokenizer(holdout_str, return_tensors="pt").to(model.device)
-    print_iterative_generate(model, tokenizer, holdout_input)
-
-
-# %%
