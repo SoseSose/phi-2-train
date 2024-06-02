@@ -84,7 +84,6 @@ class Bloom560m(LightningModule):
             model_answer_logits.loss,
             on_epoch=True,
             prog_bar=True,
-            logger=True,
         )
         return model_answer_logits.loss
 

@@ -8,7 +8,7 @@ import torch
 from dataclasses import asdict
 import mlflow.pytorch
 from architectures.phi2 import Phi2_light
-from config.train_config import DataModuleConfig, MLFLowConfig, TrainConfig
+from config.train_phi2_logi_op import DataModuleConfig, MLFLowConfig, TrainConfig
 from data_processing.logical_op_data_module import LogicalOpDataModule
 from lightning import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
