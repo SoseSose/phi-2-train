@@ -5,7 +5,7 @@ import sqlite3
 import mlflow
 import pandas as pd
 from tqdm import tqdm
-from data_processing.arc_preprocess import ArcTaskSet, ArcTask,str_to_arc_image, ArcImage
+from data_processing.arc.arc_preprocess import ArcTaskSet, ArcTask,str_to_arc_image, ArcImage
 from architectures.phi2 import BaseModel
 from arc_visualize import plot_task
 from mlflow.entities import ViewType
