@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 
-from data_processing.const import ArcConst
+from data_processing.arc.const import ArcConst
 
 MIN_COLOR_NUM = ArcConst().MIN_COLOR_NUM
 MAX_COLOR_NUM = ArcConst().MAX_COLOR_NUM
@@ -18,9 +18,41 @@ VR_DELIM = ""
 HR_DELIM = "\n"
 
 class ArcImage:
+    """
+    ARCタスクの画像を表現するクラスです。
+
+    属性:
+    - img: 2次元リストとして保存された画像データ
+    - x: 画像の幅
+    - y: 画像の高さ
+
+    メソッド:
+    - to_str: 画像を文字列として表現
+    - to_2d_list: 画像を2次元リストとして返す
+    - to_np: 画像をNumPy配列として返す
+
+    プロパティ:
+    - to_np: 画像をNumPy配列として返す
+
+    特殊メソッド:
+    - __str__: 画像の文字列表現を返す
+    - __array__: NumPy配列としての表現を返す
+    - __eq__: 他のArcImageオブジェクトとの等価性を比較
+    """
+
     def __init__(
         self, original_2d_list: Union[List[List[int]], npt.NDArray[np.int32]]
     ) -> None:
+        """
+        ArcImageオブジェクトを初期化します。
+
+        パラメータ:
+        - original_2d_list: 2次元リストまたはNumPy配列として表現された画像データ
+
+        例外:
+        - ValueError: 入力データが無効な場合（行の長さが不均一、サイズが大きすぎる、
+                      要素が整数でない、色の値が範囲外）
+        """
         for row in original_2d_list:
             if len(row) != len(original_2d_list[0]):
                 raise ValueError("All rows must have the same length.")
@@ -45,25 +77,39 @@ class ArcImage:
         self.y = len(original_2d_list)
 
     def to_str(self) -> str:
+        """画像を文字列として表現します。"""
         char_two_d_list = [[str(one_num) for one_num in row] for row in self.img]
         # num to char
         row_joined_list = [VR_DELIM.join(row) for row in char_two_d_list]
         return HR_DELIM.join(row_joined_list)
 
     def to_2d_list(self) -> List[List[int]]:
+        """画像を2次元リストとして返します。"""
         return self.img
 
     def __str__(self) -> str:
+        """画像の文字列表現を返します。"""
         return self.to_str()
 
     @property
     def to_np(self) -> npt.NDArray[np.int32]:
+        """画像をNumPy配列として返します。"""
         return np.array(self.img)
 
     def __array__(self):
+        """NumPy配列としての表現を返します。"""
         return np.array(self.img)
 
     def __eq__(self, other: "ArcImage") -> bool:
+        """
+        他のArcImageオブジェクトとの等価性を比較します。
+
+        パラメータ:
+        - other: 比較対象のArcImageオブジェクト
+
+        戻り値:
+        - bool: 両者が等しい場合はTrue、そうでない場合はFalse
+        """
         if self.to_np.shape != other.to_np.shape:
             return False
         else:
@@ -175,6 +221,26 @@ TEST_NAME = "test"
 
 @dataclass
 class ArcTask:
+    """
+    ARCタスクを表現するクラスです。
+
+    属性:
+    - train: 学習用の入出力ペアのリスト
+    - test: テスト用の入出力ペア
+    - candidate: 候補となる出力画像のリスト
+    - name: タスクの名前（デフォルトは "no name"）
+
+    プロパティ:
+    - train_inputs: 学習用の入力画像のリスト
+    - train_outputs: 学習用の出力画像のリスト
+    - test_input: テスト用の入力画像
+    - test_output: テスト用の出力画像
+    - question: タスクの文字列表現（学習データとテスト入力を含む）
+
+    メソッド:
+    - to_str: タスクの文字列表現を生成
+    """
+
     train: list[ArcInout]
     test: ArcInout
     candidate: list[ArcImage]
@@ -396,22 +462,22 @@ def test_ArcTask_eq_not_same_candidate_return_False():
 
 class ArcTaskSet:
     """
-    Represents a set of ARC tasks.
+    ARCタスクのセットを表現します。
 
-    Methods:
-    - task_json_to_arc_task(task): Converts a task in JSON format to an ArcTask object.
-    - path_to_arc_task(data_path): Converts a path to a directory containing JSON task files to a list of ArcTask objects.
+    メソッド:
+    - task_json_to_arc_task(task): JSON形式のタスクをArcTaskオブジェクトに変換します。
+    - path_to_arc_task(data_path): JSONタスクファイルを含むディレクトリへのパスをArcTaskオブジェクトのリストに変換します。
     """
 
     def _task_json_to_arc_task(self, task, name: str):
         """
-        Converts a task in JSON format to an ArcTask object.
+        JSON形式のタスクをArcTaskオブジェクトに変換します。
 
-        Parameters:
-        - task: A dictionary representing a task in JSON format.
+        パラメータ:
+        - task: JSON形式のタスクを表す辞書。
 
-        Returns:
-        - An ArcTask object representing the converted task.
+        戻り値:
+        - 変換されたタスクを表すArcTaskオブジェクト。
         """
 
         train = []
@@ -435,13 +501,13 @@ class ArcTaskSet:
 
     def path_to_arc_task(self, data_path: str) -> List[ArcTask]:
         """
-        Converts a path to a directory containing JSON task files to a list of ArcTask objects.
+        JSONタスクファイルを含むディレクトリへのパスをArcTaskオブジェクトのリストに変換します。
 
-        Parameters:
-        - data_path: A Path object representing the path to the directory containing JSON task files.
+        パラメータ:
+        - data_path: JSONタスクファイルを含むディレクトリへのパスを表すPathオブジェクト。
 
-        Returns:
-        - A list of ArcTask objects representing the converted tasks.
+        戻り値:
+        - 変換されたタスクを表すArcTaskオブジェクトのリスト。
         """
         tasks = []
         for task_file in Path(data_path).glob("*.json"):
@@ -454,13 +520,13 @@ class ArcTaskSet:
 
 def str_to_arc_image(string: str) -> ArcImage:
     """
-    Converts a string representation of a 2D list to a 2D list.
+    文字列表現を ArcImage オブジェクトに変換します。
 
-    Parameters:
-    - string: A string representation of a 2D list.
+    パラメータ:
+    - string: 2次元リストの文字列表現。
 
-    Returns:
-    - A 2D list representing the converted 2D list.
+    戻り値:
+    - 変換された ArcImage オブジェクト。
     """
     two_d_list = string.split("\n")
     two_d_list = [list(row) for row in two_d_list]
