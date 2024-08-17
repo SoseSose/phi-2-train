@@ -8,6 +8,8 @@ from typing import List, Union
 import numpy as np
 import numpy.typing as npt
 import pytest
+import lightning as L
+from torch.utils.data import DataLoader
 
 from data_processing.arc.const import ArcConst
 
@@ -206,7 +208,6 @@ def test_Arc_inout_output_not_same_return_false():
     test_image = [[1,2], [3,4]]
     arc_inout = ArcInout(ArcImage(test_image), ArcImage(test_image))
     arc_inout2 = ArcInout(ArcImage([[1,2],[3, 5]]), ArcImage(test_image))
-
     assert arc_inout != arc_inout2
 
 def test_Arc_inout_input_same_return_true():
@@ -539,3 +540,34 @@ class TestArcTaskSet:
     def test_op_path_to_arc_task(self):
         arc_task_set = ArcTaskSet()
         _ = arc_task_set.path_to_arc_task("data/training")
+
+class ArcTaskDataModule(L.LightningDataModule):
+    def __init__(self, data_path: str, batch_size: int = 32):
+        super().__init__()
+        self.data_path = data_path
+        self.batch_size = batch_size
+        self.arc_task_set = ArcTaskSet()
+        self.train_tasks = []
+        self.test_tasks = []
+
+    def prepare_data(self):
+        tasks = self.arc_task_set.path_to_arc_task(self.data_path)
+        self.train_tasks = [task for task in tasks if task.name.startswith(TRAIN_NAME)]
+        self.test_tasks = [task for task in tasks if task.name.startswith(TEST_NAME)]
+
+    def setup(self, stage: str = None):
+        if stage == 'fit' or stage is None:
+            self.train_dataset = self.train_tasks
+            self.val_dataset = self.test_tasks  
+
+        if stage == 'test' or stage is None:
+            self.test_dataset = self.test_tasks
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
